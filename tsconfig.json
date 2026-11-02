@@ -15,5 +15,5 @@
       "@/*": ["./src/panel/*"]
     }
   },
-  "include": ["src", "types.d.ts"]
+  "include": ["src", "test", "types.d.ts"]
 }

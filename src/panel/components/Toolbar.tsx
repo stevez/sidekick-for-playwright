@@ -3,7 +3,9 @@ import type { PanelState, Action } from "@/reducer";
 import { attachToTab } from '@/lib/bridge';
 import { runJsScript, runJsScriptStep } from '@/lib/run';
 import { swTerminateExecution, swDebugResume } from '@/lib/sw-debugger';
-import { SunIcon, MoonIcon, FolderOpenIcon, SaveIcon, RecordIcon, StopIcon, BugIcon, CrosshairIcon, PlugIcon, UnplugIcon, ScreencastIcon } from './Icons';
+import { SunIcon, MoonIcon, FolderOpenIcon, SaveIcon, ExportIcon, RecordIcon, StopIcon, BugIcon, CrosshairIcon, PlugIcon, UnplugIcon, ScreencastIcon } from './Icons';
+import ExportSpecDialog from './ExportSpecDialog';
+import { defaultTestName } from '@/lib/export-spec';
 import type { EditorHandle } from './CodeMirrorEditorPane';
 import { buildPickResult } from '@/lib/pick-info';
 import type { ElementPickInfo } from '@/types';
@@ -23,6 +25,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
     const [canAttach, setCanAttach] = useState(true);
     const [selectedTabId, setSelectedTabId] = useState<number | null>(null);
     const [isVideoRecording, setIsVideoRecording] = useState(false);
+    const [exportDefaultName, setExportDefaultName] = useState<string | null>(null); // non-null = export dialog open
     const [videoElapsed, setVideoElapsed] = useState(0);
     const videoStartTimeRef = useRef(0);
 
@@ -161,6 +164,14 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                 dispatch({ type: 'ADD_LINE', line: { text: 'Save failed: ' + e.message, type: 'error' } })
             }
         }
+    }
+
+    // ─── Export spec ───
+
+    async function handleExportSpec() {
+        const tabId = attachedTabId ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
+        const tab = tabId ? await chrome.tabs.get(tabId).catch(() => null) : null;
+        setExportDefaultName(defaultTestName(tab?.title));
     }
 
     // ─── Run / Step / Stop ───
@@ -394,6 +405,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                 </button>
                 <button id="open-btn" title="Open script" onClick={handleFileOpen}><FolderOpenIcon /></button>
                 <button id="save-btn" title="Save script" disabled={!editorContent.trim()} onClick={handleSave}><SaveIcon /></button>
+                <button data-testid="export-spec-btn" title="Export as Playwright test (.spec.ts / .spec.js)" disabled={!editorContent.trim()} onClick={handleExportSpec}><ExportIcon /></button>
                 <button onClick={() => setIsDarkMode(prev => !prev)} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
                     {isDarkMode ? <SunIcon /> : <MoonIcon />}
                 </button>
@@ -423,6 +435,14 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                     {attachedUrl ? <UnplugIcon /> : <PlugIcon />}
                 </button>
             </div>
+            {exportDefaultName !== null && (
+                <ExportSpecDialog
+                    script={editorContent}
+                    defaultName={exportDefaultName}
+                    onClose={() => setExportDefaultName(null)}
+                    onError={text => dispatch({ type: 'ADD_LINE', line: { text, type: 'error' } })}
+                />
+            )}
         </div>
     )
 }
