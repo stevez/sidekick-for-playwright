@@ -8,7 +8,7 @@ Record a session as Playwright JavaScript, pick locators, build assertions, run 
 
 Early scaffold. It was split off from [Dramaturg](https://github.com/stevez/playwright-repl/tree/main/packages/extension) as a plain copy and narrowed to JavaScript only, without the `.pw` keyword commands, CLI/MCP bridge, CDP relay or DevTools console.
 
-Working: attach to a tab, record → Playwright JS, run the script, step debugger with breakpoints, element picker, console, tracing, video capture.
+Working: attach to a tab, record → Playwright JS, run the script, step debugger with breakpoints, element picker, console, tracing, video capture, and **Export spec**. Export spec wraps the script in a Playwright Test file (`.spec.ts` / `.spec.js`), with the test name taken from the page title.
 
 ## Develop
 
@@ -19,6 +19,7 @@ npm install
 npm run build        # outputs dist/
 npm run typecheck
 npm run lint
+npm test             # unit tests (Vitest)
 ```
 
 Load `dist/` as an unpacked extension (`chrome://extensions` → Developer mode → Load unpacked), then click the toolbar icon to open the side panel.
@@ -35,7 +36,6 @@ Load `dist/` as an unpacked extension (`chrome://extensions` → Developer mode 
 
 ## Roadmap (v1)
 
-- Export spec: wrap the script in `import { test, expect }` + `test('<page title>', async ({ page }) => { … })` and save as `.spec.ts` / `.spec.js`
 - Remove the `.pw` output still produced internally by the recorder, locator and picker helpers (only the JS output is used)
 - Icons and Web Store listing
 - Tests: unit (Vitest) and E2E (Playwright, loading `dist/`)
