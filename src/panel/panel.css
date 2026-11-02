@@ -1,0 +1,325 @@
+@import "tailwindcss";
+
+/* === Theme variables === */
+
+:root {
+  /* Light theme (default — matches Chrome DevTools) */
+  --bg-body: #ffffff;
+  --bg-toolbar: #f3f3f3;
+  --bg-editor: #ffffff;
+  --bg-line-highlight: #e8e8e8;
+  --bg-run-line: #d4ecfb;
+  --bg-button: #e0e0e0;
+  --bg-button-hover: #d0d0d0;
+  --bg-splitter: #f3f3f3;
+  --bg-splitter-hover: #e8e8e8;
+  --bg-scrollbar-track: #ffffff;
+  --bg-scrollbar-thumb: #c1c1c1;
+  --bg-scrollbar-thumb-hover: #a8a8a8;
+
+  --text-default: #1e1e1e;
+  --text-line-numbers: #858585;
+  --text-dim: #6e6e6e;
+  --text-placeholder: #a0a0a0;
+
+  --border-primary: #d4d4d4;
+  --border-button: #c8c8c8;
+  --border-screenshot: #d4d4d4;
+
+  --color-run-bg: #2ea043;
+  --color-run-bg-hover: #3fb950;
+  --color-recording-bg: #fde8e8;
+  --color-recording-text: #d32f2f;
+  --color-recording-border: #d32f2f;
+  --color-error: #d32f2f;
+  --color-success: #2e7d32;
+  --color-command: #0451a5;
+  --color-snapshot: #0070c1;
+  --color-comment: #6a9955;
+  --color-string: #a31515;
+  --color-flag: #795e26;
+  --color-url: #0070c1;
+  --color-active-line: #795e26;
+  --color-line-pass: #2e7d32;
+  --color-line-fail: #d32f2f;
+  --color-prompt: #2e7d32;
+  --color-splitter-handle: #a0a0a0;
+  --color-splitter-handle-hover: #007acc;
+  --color-toolbar-sep: #d4d4d4;
+  --color-caret: #1e1e1e;
+  --color-breakpoint: #e51400;
+  --color-inline-value: #6e6e6e;
+}
+
+.theme-dark {
+  --bg-body: #1e1e1e;
+  --bg-toolbar: #252526;
+  --bg-editor: #1e1e1e;
+  --bg-line-highlight: #2a2d2e;
+  --bg-run-line: #1a3a50;
+  --bg-button: #333333;
+  --bg-button-hover: #3c3c3c;
+  --bg-splitter: #252526;
+  --bg-splitter-hover: #2a2d2e;
+  --bg-scrollbar-track: #1e1e1e;
+  --bg-scrollbar-thumb: #444444;
+  --bg-scrollbar-thumb-hover: #555555;
+
+  --text-default: #d4d4d4;
+  --text-line-numbers: #858585;
+  --text-dim: #888888;
+  --text-placeholder: #555555;
+
+  --border-primary: #333333;
+  --border-button: #444444;
+  --border-screenshot: #444444;
+
+  --color-run-bg: #2ea043;
+  --color-run-bg-hover: #3fb950;
+  --color-recording-bg: #5c2020;
+  --color-recording-text: #f44747;
+  --color-recording-border: #f44747;
+  --color-error: #f44747;
+  --color-success: #6a9955;
+  --color-command: #569cd6;
+  --color-snapshot: #9cdcfe;
+  --color-comment: #6a9955;
+  --color-string: #ce9178;
+  --color-flag: #dcdcaa;
+  --color-url: #9cdcfe;
+  --color-active-line: #dcdcaa;
+  --color-line-pass: #6a9955;
+  --color-line-fail: #f44747;
+  --color-prompt: #6a9955;
+  --color-splitter-handle: #555555;
+  --color-splitter-handle-hover: #007acc;
+  --color-toolbar-sep: #444444;
+  --color-caret: #d4d4d4;
+  --color-breakpoint: #e51400;
+  --color-inline-value: #888888;
+}
+
+/* === Reset === */
+
+html, body {
+  height: 100%;
+  background: var(--bg-body);
+  color: var(--text-default);
+  font-family: "Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* === Toolbar (top) === */
+
+#toolbar button {
+  background: var(--bg-button);
+  color: var(--text-default);
+  border: 1px solid var(--border-button);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#toolbar button:hover {
+  background: var(--bg-button-hover);
+}
+
+#toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#toolbar [data-testid="mode-toggle"] button[data-active] {
+  background: var(--color-run-bg);
+  color: white;
+  font-weight: 600;
+}
+
+#toolbar [data-testid="mode-toggle"] button:not([data-active]) {
+  background: transparent;
+  opacity: 0.6;
+}
+
+#run-btn,
+#step-btn {
+  min-width: 28px;
+  padding: 4px 8px;
+  font-size: 14px;
+  text-align: center;
+}
+
+#debug-btn,
+#step-btn,
+#stop-run-btn {
+  color: var(--text-primary);
+}
+
+#run-btn {
+  background: var(--color-run-bg) !important;
+  color: white !important;
+  border-color: var(--color-run-bg) !important;
+  font-weight: bold;
+}
+
+#run-btn:hover {
+  background: var(--color-run-bg-hover) !important;
+}
+
+#record-btn.recording {
+  background: var(--color-recording-bg) !important;
+  color: var(--color-recording-text) !important;
+  border-color: var(--color-recording-border) !important;
+}
+
+#video-btn.video-recording {
+  background: var(--color-recording-bg) !important;
+  color: var(--color-recording-text) !important;
+  border-color: var(--color-recording-border) !important;
+}
+
+[data-testid="pick-btn"].picking {
+  background: #e3f2fd !important;
+  color: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+
+.theme-dark [data-testid="pick-btn"].picking {
+  background: #1a3a5c !important;
+  color: #64b5f6 !important;
+  border-color: #64b5f6 !important;
+}
+
+/* === Splitter === */
+
+#splitter:hover {
+  background: var(--bg-splitter-hover);
+}
+
+#splitter:hover #splitter-handle {
+  background: var(--color-splitter-handle-hover);
+}
+
+/* Scrollbar styling */
+.cm-scroller::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cm-scroller::-webkit-scrollbar-track {
+  background: var(--bg-scrollbar-track);
+}
+
+.cm-scroller::-webkit-scrollbar-thumb {
+  background: var(--bg-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-scrollbar-thumb-hover);
+}
+
+
+/* === ObjectTree === */
+
+.ot-key    { color: var(--color-flag); }
+.ot-colon  { color: var(--text-dim); }
+.ot-string { color: var(--color-string); word-break: break-word; }
+.ot-number { color: var(--color-url); }
+.ot-boolean { color: var(--color-url); }
+.ot-null, .ot-undefined { color: var(--text-dim); font-style: italic; }
+.ot-empty  { color: var(--text-dim); }
+
+.ot-toggle {
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-dim);
+}
+.ot-toggle:hover { color: var(--text-default); }
+
+.ot-summary { color: var(--text-dim); }
+
+.ot-children { padding-left: 12px; }
+
+.ot-row { display: flex; align-items: baseline; }
+
+
+/* === Debug floating bar === */
+
+#debug-bar {
+  position: fixed;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  background: var(--bg-toolbar);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#debug-bar button {
+  background: transparent;
+  color: var(--text-default);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#debug-bar button:hover {
+  background: var(--bg-button-hover);
+  border-color: var(--border-button);
+}
+
+.debug-bar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--color-toolbar-sep);
+  margin: 0 2px;
+}
+
+.console-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.console-clear-btn:hover {
+  color: var(--text-default);
+  background: var(--bg-button);
+}
+
+[data-testid="bottom-pane"] > div:first-child button[data-active] {
+  opacity: 1;
+  border-bottom: 2px solid var(--color-run-bg);
+}
+
+[data-testid="bottom-pane"] > div:first-child button:not([data-active]) {
+  color: color-mix(in srgb, var(--text-default) 60%, transparent);
+  border-bottom: 2px solid transparent;
+}

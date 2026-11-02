@@ -1,0 +1,116 @@
+import { useRef, useEffect, useImperativeHandle } from 'react';
+import { EditorView } from 'codemirror';
+import { baseExtensions, dispatchRunState } from '@/lib/codemirror-setup';
+import type { PanelState, Action } from "@/reducer";
+import { breakpointField } from '@/lib/codemirror-setup';
+import { InlineValues } from '@/lib/codemirror-setup';
+
+export interface EditorHandle {
+    insertAtCursor: (text: string) => void;
+    replaceLastInsert: (text: string) => void;
+    getCursorPos: () => number;
+    setCursorPos: (pos: number) => void;
+}
+
+interface EditorPaneProps extends Pick<PanelState, 'editorContent' | 'currentRunLine' | 'lineResults'> {
+    dispatch: React.Dispatch<Action>
+    ref?: React.Ref<EditorHandle | null>
+    containerRef?: React.Ref<HTMLDivElement>
+    inlineValues: InlineValues
+}
+
+
+function CodeMirrorEditorPane({ editorContent, currentRunLine, lineResults, dispatch, ref, containerRef, inlineValues }: EditorPaneProps) {
+    const cmContainerRef = useRef<HTMLDivElement>(null);
+    const viewRef = useRef<EditorView>(null);
+    const externalUpdateRef = useRef(false);
+    const lastInsertRangeRef = useRef<{ from: number; to: number } | null>(null);
+
+    useImperativeHandle(ref, () => ({
+        insertAtCursor(text: string) {
+            const view = viewRef.current;
+            if (!view) return;
+            const { from } = view.state.selection.main;
+            const before = view.state.doc.sliceString(Math.max(0, from - 1), from);
+            const insert = (before && before !== '\n' ? '\n' : '') + text;
+            const insertFrom = from;
+            view.dispatch({
+                changes: { from, to: from, insert },
+                selection: { anchor: from + insert.length },
+                scrollIntoView: true,
+            });
+            lastInsertRangeRef.current = { from: insertFrom, to: insertFrom + insert.length };
+            view.focus();
+        },
+        replaceLastInsert(text: string) {
+            const view = viewRef.current;
+            const range = lastInsertRangeRef.current;
+            if (!view || !range) return;
+            const before = view.state.doc.sliceString(Math.max(0, range.from - 1), range.from);
+            const insert = (before && before !== '\n' ? '\n' : '') + text;
+            view.dispatch({
+                changes: { from: range.from, to: range.to, insert },
+                selection: { anchor: range.from + insert.length },
+                scrollIntoView: true,
+            });
+            lastInsertRangeRef.current = { from: range.from, to: range.from + insert.length };
+            view.focus();
+        },
+        getCursorPos() {
+            return viewRef.current?.state.selection.main.head ?? 0;
+        },
+        setCursorPos(pos: number) {
+            const view = viewRef.current;
+            if (!view) return;
+            const clamped = Math.min(pos, view.state.doc.length);
+            view.dispatch({ selection: { anchor: clamped }, scrollIntoView: true });
+        },
+    }));
+
+    useEffect(() => {
+        const view = new EditorView({
+            doc: editorContent,
+            extensions: [
+                ...baseExtensions,
+                EditorView.updateListener.of((update) => {
+                    if (update.docChanged && !externalUpdateRef.current) {
+                        dispatch({ type: 'EDIT_EDITOR_CONTENT', content: update.state.doc.toString() });
+                    }
+                    const oldBps = update.startState.field(breakpointField);
+                    const newBps = update.state.field(breakpointField);
+                    if (oldBps !== newBps) {
+                        dispatch({ type: 'SET_BREAKPOINTS', breakPoints: newBps });
+                    }
+                }),
+            ],
+            parent: cmContainerRef.current!,
+        });
+        viewRef.current = view;
+        return () => view.destroy();
+    }, []);
+
+    useEffect(() => {
+        const view = viewRef.current;
+        if(!view) return;
+        if(view.state.doc.toString() === editorContent) return;
+        externalUpdateRef.current = true;
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: editorContent } });
+        view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true });
+        externalUpdateRef.current = false;
+        view.focus();
+    }, [editorContent]);
+
+    useEffect(()=> {
+        const view = viewRef.current;
+        if(!view) return;
+        dispatchRunState(view, currentRunLine, lineResults, inlineValues ?? new Map());
+    }, [currentRunLine, lineResults, inlineValues]);
+
+    return (
+        <div id="editor-pane" ref={containerRef} data-testid="editor" className="flex flex-1 min-h-[80px] overflow-hidden bg-(--bg-editor)">
+           <div ref={cmContainerRef} className='flex-1' />
+        </div>
+    )
+}
+
+export default CodeMirrorEditorPane;
