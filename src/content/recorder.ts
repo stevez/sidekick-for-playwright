@@ -5,7 +5,7 @@
  *
  * Transparent: never calls preventDefault/stopPropagation — user actions flow normally.
  */
-import { escapeString, isTextField, isCheckable, buildCommands, findHoverAncestor, isHoverRevealed } from './locator';
+import { escapeString, isTextField, isCheckable, buildCommand, findHoverAncestor, isHoverRevealed } from './locator';
 
 // Interactive ARIA roles that should own a click event when the user clicks a
 // descendant (e.g. MS Forms places a bare <span> "Select your answer" inside
@@ -46,7 +46,7 @@ export const SPECIAL_KEYS = new Set([
 
 /**
  * Compute CSS selector for a frame element.
- * Uses the same selector for both --frame flag (PW) and .locator().contentFrame() (JS),
+ * Used in the .locator().contentFrame() chain,
  * matching pickLocator's output format for consistency.
  * Priority: CSS id > name attribute > src attribute > nth-of-type fallback.
  */
@@ -104,17 +104,18 @@ const FRAME_REQ = '__pw_repl_frame_req';
 const FRAME_PATH = '__pw_repl_frame_path';
 
 /**
- * Wrap recorded commands with frame context if we're inside an iframe.
- * Prepends --frame flag(s) to PW and .contentFrame() chain to JS.
+ * Wrap a recorded line with frame context if we're inside an iframe:
+ * inserts the .contentFrame() chain after `page`.
  */
-function wrapWithFrameContext(cmds: { pw: string; js: string }): { pw: string; js: string } {
-    if (framePath.length === 0) return cmds;
-    const frameArg = framePath.join(' ');
+function wrapWithFrameContext(js: string): string {
+    if (framePath.length === 0) return js;
     const jsChain = framePath.map(sel => `.locator(${JSON.stringify(sel)}).contentFrame()`).join('');
-    return {
-        pw: `${cmds.pw} --frame "${frameArg}"`,
-        js: `await page${jsChain}.${cmds.js.replace(/^await page\./, '')}`,
-    };
+    return `await page${jsChain}.${js.replace(/^await page\./, '')}`;
+}
+
+/** Send a recorded line to the panel (recorded-action appends, recorded-fill-update replaces the last line) */
+function sendRecorded(type: 'recorded-action' | 'recorded-fill-update', js: string | null) {
+    if (js) safeSendMessage({ type, action: { js: wrapWithFrameContext(js) } });
 }
 
 // ─── Cross-origin frame path resolution ─────────────────────────────────
@@ -224,11 +225,7 @@ export function onClickCapture(e: MouseEvent) {
             const ampIdx = href.indexOf('&');
             if (ampIdx > 0) href = href.slice(0, ampIdx);
             if (href) {
-                const cmds = {
-                    pw: `click link "${href}"`,
-                    js: `await page.locator('a[href^="${href}"]:not([aria-hidden="true"])').click();`,
-                };
-                safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(cmds) });
+                sendRecorded('recorded-action', `await page.locator('a[href^="${href}"]:not([aria-hidden="true"])').click();`);
                 return;
             }
         }
@@ -247,18 +244,10 @@ export function onClickCapture(e: MouseEvent) {
     // emit a hover command on the :hover ancestor so replay works.
     if (isHoverRevealed(target)) {
         const hoverTarget = findHoverAncestor(target);
-        if (hoverTarget) {
-            const hoverCmds = buildCommands('hover', hoverTarget);
-            if (hoverCmds) {
-                safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(hoverCmds) });
-            }
-        }
+        if (hoverTarget) sendRecorded('recorded-action', buildCommand('hover', hoverTarget));
     }
 
-    const cmds = buildCommands('click', findInteractiveAncestor(target));
-    if (cmds) {
-        safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(cmds) });
-    }
+    sendRecorded('recorded-action', buildCommand('click', findInteractiveAncestor(target)));
 }
 
 export function onInputCapture(e: Event) {
@@ -270,18 +259,12 @@ export function onInputCapture(e: Event) {
     if (pendingFill && pendingFill.el === target) {
         // Same element — update
         pendingFill.value = value;
-        const cmds = buildCommands('fill', target, { value });
-        if (cmds) {
-            safeSendMessage({ type: 'recorded-fill-update', action: wrapWithFrameContext(cmds) });
-        }
+        sendRecorded('recorded-fill-update', buildCommand('fill', target, { value }));
     } else {
         // Different element or first input — flush old, start new
         flushPendingFill();
         pendingFill = { el: target, value };
-        const cmds = buildCommands('fill', target, { value });
-        if (cmds) {
-            safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(cmds) });
-        }
+        sendRecorded('recorded-action', buildCommand('fill', target, { value }));
     }
 }
 
@@ -293,10 +276,7 @@ export function onChangeCapture(e: Event) {
     if (isCheckable(target)) {
         flushPendingFill();
         const checked = (target as HTMLInputElement).checked;
-        const cmds = buildCommands(checked ? 'check' : 'uncheck', target);
-        if (cmds) {
-            safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(cmds) });
-        }
+        sendRecorded('recorded-action', buildCommand(checked ? 'check' : 'uncheck', target));
         return;
     }
 
@@ -306,10 +286,7 @@ export function onChangeCapture(e: Event) {
         // Use visible option text (label) instead of the value attribute (#802)
         const selected = target.options[target.selectedIndex];
         const option = selected ? selected.text.trim() || target.value : target.value;
-        const cmds = buildCommands('select', target, { option });
-        if (cmds) {
-            safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(cmds) });
-        }
+        sendRecorded('recorded-action', buildCommand('select', target, { option }));
         return;
     }
 }
@@ -329,12 +306,9 @@ export function onKeyDownCapture(e: KeyboardEvent) {
     // Any special key during fill → flush fill, then fall through to emit press
     flushPendingFill();
 
-    const cmds = target && target !== document.body && target !== document.documentElement
-        ? buildCommands('press', target, { key: e.key })
-        : { pw: `press ${e.key}`, js: `await page.keyboard.press(${escapeString(e.key)});` };
-    if (cmds) {
-        safeSendMessage({ type: 'recorded-action', action: wrapWithFrameContext(cmds) });
-    }
+    sendRecorded('recorded-action', target && target !== document.body && target !== document.documentElement
+        ? buildCommand('press', target, { key: e.key })
+        : `await page.keyboard.press(${escapeString(e.key)});`);
 }
 
 export function onFocusOutCapture(e: FocusEvent) {
@@ -390,10 +364,10 @@ export function init() {
             const evt = e as NavEvent;
             if (evt.navigationType === 'traverse') {
                 if (evt.destination.index < (nav.currentEntry?.index ?? 0)) {
-                    safeSendMessage({ type: 'recorded-action', action: { pw: 'go-back', js: 'await page.goBack();' } });
+                    safeSendMessage({ type: 'recorded-action', action: { js: 'await page.goBack();' } });
                 } else {
                     const url = evt.destination.url ?? '';
-                    safeSendMessage({ type: 'recorded-action', action: { pw: `goto "${url}"`, js: `await page.goto('${url}');` } });
+                    safeSendMessage({ type: 'recorded-action', action: { js: `await page.goto('${url}');` } });
                 }
                 safeSendMessage({ type: 'nav-handled' });
             }
