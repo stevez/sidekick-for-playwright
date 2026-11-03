@@ -1,17 +1,6 @@
 import type { ElementPickInfo, PickResultData } from '@/types';
 import type { SerializedValue } from '@/components/Console/types';
 
-/**
- * Extract --nth flag from a JS locator chain (.first(), .last(), .nth(N)).
- */
-function extractNth(locator: string): string {
-    if (/\.first\(\)/.test(locator)) return ' --nth 0';
-    if (/\.last\(\)/.test(locator)) return ' --nth -1';
-    const nthMatch = locator.match(/\.nth\((\d+)\)/);
-    if (nthMatch) return ` --nth ${nthMatch[1]}`;
-    return '';
-}
-
 // ─── Aria snapshot parsing ──────────────────────────────────────────────
 
 type AriaNode = { role: string; name: string };
@@ -35,7 +24,7 @@ function parseAriaLine(line: string): AriaNode | null {
 
 /**
  * Parse aria snapshot to extract the picked element and optional parent context.
- * Returns { element, parent } where parent provides --in context.
+ * Returns { element, parent }.
  *
  * Single line:  `- button "Submit"` → element only
  * Nested:       `- listitem:\n  - checkbox "reading"` → element=checkbox, parent=listitem
@@ -82,27 +71,6 @@ function parseAriaSnapshot(snapshot: string): { element: AriaNode; parent?: Aria
     return { element: firstNode };
 }
 
-/**
- * Extract the frame chain from a JS locator with one or more .contentFrame() hops.
- * e.g. `locator('#outer').contentFrame().locator('#inner').contentFrame().getByRole('button', { name: 'OK' })`
- * → { frameSelector: '#outer #inner', innerLocator: "getByRole('button', { name: 'OK' })" }
- * frameSelector is space-separated, outermost first — the same --frame format the recorder emits.
- * Returns null if no frame context is present.
- */
-function extractFrameContext(locator: string): { frameSelector: string; innerLocator: string } | null {
-    const frames: string[] = [];
-    let rest = locator;
-    // Back-reference the opening quote so selectors like 'iframe[name="x"]' keep their inner quotes
-    const hop = /^locator\((['"])(.+?)\1\)\.contentFrame\(\)\./;
-    let match;
-    while ((match = rest.match(hop))) {
-        frames.push(match[2]);
-        rest = rest.slice(match[0].length);
-    }
-    if (frames.length === 0) return null;
-    return { frameSelector: frames.join(' '), innerLocator: rest };
-}
-
 // ─── JS Locator Parsing ──────────────────────────────────────────────
 
 type ParsedLocator = {
@@ -147,218 +115,57 @@ function parseJsLocator(locator: string): ParsedLocator {
 }
 
 /**
- * Derive a .pw keyword command from JS locator (primary) + aria snapshot (for --in context).
- * The JS locator is the single source of truth for role, name, and options.
- * Aria snapshot provides: (1) role enrichment for non-getByRole locators,
- * (2) parent container for --in flag.
- * When headingContext is provided and no aria parent exists, replaces --nth with --in "heading".
+ * Derive the JS assertion for the picked element.
+ * Priority: checked > value > URL-only link > text > visible.
  */
-function derivePwCommand(info: ElementPickInfo, ariaSnapshot?: string, headingContext?: string | null): string | null {
-    const parsed = parseJsLocator(info.locator);
-    const nth = extractNth(info.locator);
-    const headingIn = headingContext ? ` --in "${headingContext}"` : '';
-
-    // Parse aria snapshot once for role enrichment and --in context
-    const ariaParsed = ariaSnapshot ? parseAriaSnapshot(ariaSnapshot) : null;
-
-    // Role: from JS locator, enriched by aria element when not available
-    const role = parsed.role ?? ariaParsed?.element.role;
-
-    // Name: prefer aria element name (full accessible name) over JS locator name
-    // (which may be a substring — Playwright's getByRole uses substring matching by default)
-    const name = ariaParsed?.element.name || parsed.name;
-
-    // URL: extract from aria snapshot for link elements without an accessible name
-    const ariaUrl = ariaSnapshot?.match(/\/url:\s*(\S+)/)?.[1];
-
-    // --in: from chained locator (getByRole('group', { name: 'X' }).getByLabel('Y'))
-    // or from aria parent (when parent role differs from element role)
-    let inFlag = '';
-    const chainMatch = info.locator.match(/getByRole\(['"]([^'"]+)['"](?:,\s*\{([^}]*)\})?\)\.getBy/);
-    if (chainMatch && chainMatch[1] !== role) {
-        const containerRole = chainMatch[1];
-        const nameMatch = chainMatch[2]?.match(/name:\s*['"]([^'"]+)['"]/);
-        const containerName = nameMatch ? ` "${nameMatch[1]}"` : '';
-        inFlag = ` --in ${containerRole}${containerName}`;
-    } else if (ariaParsed?.parent && ariaParsed.parent.role !== role) {
-        const parentName = ariaParsed.parent.name ? ` "${ariaParsed.parent.name}"` : '';
-        inFlag = ` --in ${ariaParsed.parent.role}${parentName}`;
-    }
-
-    // Build command
-    const parts = ['highlight'];
-    if (role) parts.push(role);
-    if (name) parts.push(`"${name}"`);
-
-    // Only add heading --in when replacing --nth or complex CSS scoping (locator()/filter())
-    const needsScoping = nth || /\.locator\(|\.filter\(|^locator\(/.test(info.locator);
-
-    // Link with URL but no accessible name — use URL as the link identifier
-    // (ariaUrl presence implies a link even when aria parsing fails to extract the role)
-    if (!name && ariaUrl) return `highlight link "${ariaUrl}"`;
-
-    if (role || name) {
-        const base = parts.join(' ');
-        // Prefer heading --in over --nth / complex CSS scoping when no aria parent context exists
-        // But only when name is present — bare role + --in doesn't scope reliably
-        if (!inFlag && headingIn && needsScoping && name) return `${base}${headingIn}`;
-        return `${base}${nth}${inFlag}`;
-    }
-
-    // Last resort: element text
-    const text = info.text?.trim();
-    if (text && text.length <= 80) return `highlight "${text}"${(needsScoping && headingIn) || nth}`;
-
-    // CSS fallback — pure CSS selectors without semantic role/name/text
-    const cssMatch = info.locator.match(/^locator\(['"](.+?)['"]\)(?:\.(?:first|last)\(\)|\.nth\(\d+\))?$/);
-    if (cssMatch) return `highlight css "${cssMatch[1]}"${nth}`;
-
-    return null;
-}
-
-/**
- * Extract the quoted name from a pw command like `highlight "Submit"` or `highlight button "Submit"`.
- */
-function extractPwName(pwCommand: string): string | null {
-    const match = pwCommand.match(/"(.+?)"/);
-    return match ? match[1] : null;
-}
-
-/**
- * Derive assertion strings (JS + PW) based on element type.
- * Priority: checked > value > text > visible.
- */
-function deriveAssertion(info: ElementPickInfo, locator: string, pwCommand: string | null, ariaSnapshot?: string, headingContext?: string | null): { assertJs: string; assertPw: string } {
+function deriveAssertion(info: ElementPickInfo, locator: string, ariaSnapshot?: string): string {
     const tag = info.tag;
     const inputType = info.attributes?.type?.toLowerCase() ?? '';
-    // Extract name from pw command, falling back to JS locator parsing
-    // Skip extraction for CSS fallback commands — the quoted value is a selector, not a name
-    // Skip URL values — they're href identifiers, not visible text for assertions
-    const parsed = parseJsLocator(locator);
-    const isCssPw = pwCommand?.includes(' css ') ?? false;
-    const pwName = pwCommand && !isCssPw ? extractPwName(pwCommand) : null;
-    const name = (pwName && !/^\/|^https?:\/\//.test(pwName) ? pwName : null) ?? parsed.name ?? null;
-    const quotedName = name ? `"${name}"` : null;
-    // Extract role from aria snapshot, element attributes, or JS locator
-    const ariaRole = ariaSnapshot ? parseAriaSnapshot(ariaSnapshot)?.element.role : null;
-    const role = ariaRole || info.attributes?.role || parsed.role || null;
-    // Suppress --nth when heading context will replace it (same as derivePwCommand)
-    // But only when name is present — bare role + heading doesn't scope reliably
-    const rawNth = extractNth(locator);
-    const needsScoping = rawNth || /\.locator\(|\.filter\(|^locator\(/.test(locator);
-    const nth = (headingContext && needsScoping && name) ? '' : rawNth;
 
     // Checkbox/radio → checked assertion
     if (tag === 'input' && (inputType === 'checkbox' || inputType === 'radio') && info.checked !== undefined) {
-        return {
-            assertJs: info.checked
-                ? `await expect(${locator}).toBeChecked();`
-                : `await expect(${locator}).not.toBeChecked();`,
-            assertPw: quotedName
-                ? `verify-value ${quotedName} "${info.checked ? 'on' : 'off'}"`
-                : `verify-value "${info.checked ? 'on' : 'off'}"`,
-        };
+        return info.checked
+            ? `await expect(${locator}).toBeChecked();`
+            : `await expect(${locator}).not.toBeChecked();`;
     }
 
     // Input/textarea/select → value assertion
-    if ((tag === 'input' || tag === 'textarea' || tag === 'select') && info.value !== undefined) {
-        return {
-            assertJs: `await expect(${locator}).toHaveValue('${info.value.replace(/'/g, "\\'")}');`,
-            assertPw: quotedName
-                ? `verify-value ${quotedName} "${info.value}"`
-                : `verify-value "${info.value}"`,
-        };
-    }
+    if ((tag === 'input' || tag === 'textarea' || tag === 'select') && info.value !== undefined)
+        return `await expect(${locator}).toHaveValue('${info.value.replace(/'/g, "\\'")}');`;
 
-    // Helper: build pw assertion target, consistent with JS locator's role/name/nth
-    function pwTarget(fallbackText?: string): string {
-        if (role && quotedName) return `${role} ${quotedName}${nth}`;
-        if (quotedName) return `${quotedName}${nth}`;
-        if (fallbackText) return `"${fallbackText}"${nth}`;
-        return '';
-    }
+    // Name: prefer the aria element name (full accessible name) over the JS locator name
+    // (which may be a substring — Playwright's getByRole uses substring matching by default)
+    const name = (ariaSnapshot ? parseAriaSnapshot(ariaSnapshot)?.element.name : '') || parseJsLocator(locator).name;
 
-    // Link identified by URL — assert visibility, not text content
-    const isUrlLink = pwName && /^\/|^https?:\/\//.test(pwName);
-    if (isUrlLink) {
-        return {
-            assertJs: `await expect(${locator}).toBeVisible();`,
-            assertPw: `verify-element link "${pwName}"`,
-        };
-    }
+    // Link identified only by URL — assert visibility, not text content
+    if (!name && ariaSnapshot && /\/url:\s*\S+/.test(ariaSnapshot))
+        return `await expect(${locator}).toBeVisible();`;
 
     // Has text content → text assertion
     // Skip if locator is getByText — toContainText with the same text is redundant
     const text = info.text?.trim();
-    const locatorIsText = /\.getByText\(/.test(locator);
-    if (text && !locatorIsText) {
+    if (text && !/\.getByText\(/.test(locator)) {
         const assertText = name ?? text;
-        const target = pwTarget(assertText);
-        return {
-            assertJs: `await expect(${locator}).toContainText('${assertText.replace(/'/g, "\\'")}');`,
-            assertPw: role ? `verify-element ${target}` : `verify-text ${target}`,
-        };
+        return `await expect(${locator}).toContainText('${assertText.replace(/'/g, "\\'")}');`;
     }
 
-    // Fallback → visible assertion
-    const target = pwTarget();
-    let assertPw: string;
-    if (role && target) {
-        assertPw = `verify-element ${target}`;
-    } else if (role) {
-        assertPw = `verify-visible ${role}${nth}`;
-    } else if (target) {
-        assertPw = `verify-text ${target}`;
-    } else if (isCssPw) {
-        // CSS fallback — extract selector from pw command
-        const cssSel = extractPwName(pwCommand!);
-        assertPw = cssSel ? `verify-visible css "${cssSel}"${nth}` : '';
-    } else {
-        assertPw = '';
-    }
-    return {
-        assertJs: `await expect(${locator}).toBeVisible();`,
-        assertPw,
-    };
+    return `await expect(${locator}).toBeVisible();`;
 }
 
 /**
  * Build a PickResultData from element info gathered by pickLocator().
- * Uses aria snapshot (when available) to derive .pw commands from
- * Playwright's semantic model instead of regex-parsing the JS locator.
  */
-export function buildPickResult(info: ElementPickInfo, cdpLocator?: string | null, ariaSnapshot?: string, headingContext?: string | null): PickResultData {
+export function buildPickResult(info: ElementPickInfo, cdpLocator?: string | null, ariaSnapshot?: string): PickResultData {
     const jsLocator = cdpLocator ?? info.locator;
     const locator = `page.${jsLocator}`;
-    const jsExpression = `await page.${jsLocator}.highlight();`;
-
-    // Extract context flags from JS locator — applied to all PW commands
-    const frame = extractFrameContext(jsLocator);
-    const innerLocator = frame ? frame.innerLocator : jsLocator;
-    const exact = /exact:\s*true/.test(innerLocator);
-    const extraFlags = (exact ? ' --exact' : '') + (frame ? ` --frame "${frame.frameSelector}"` : '');
-
-    let pwCommand = derivePwCommand({ ...info, locator: innerLocator }, ariaSnapshot, headingContext);
-    if (pwCommand) pwCommand += extraFlags; // --in already inside derivePwCommand
-
-    const assertion = deriveAssertion(info, locator, pwCommand, ariaSnapshot, headingContext);
-    const assertJs = assertion.assertJs;
-    let assertPw = assertion.assertPw;
-    // Carry --in from pwCommand (covers both chain-based and heading-based --in)
-    const inMatch = pwCommand?.match(/\s(--in\s+.+?)(?:\s--|\s*$)/);
-    if (assertPw && inMatch) assertPw += ` ${inMatch[1]}`;
-    if (assertPw) assertPw += extraFlags;
 
     // Extract snapshot ref from aria snapshot (e.g. [ref=e45] → "e45")
-    const refMatch = ariaSnapshot?.match(/\[ref=(e\d+)\]/);
-    const ref = refMatch?.[1];
+    const ref = ariaSnapshot?.match(/\[ref=(e\d+)\]/)?.[1];
 
     return {
         locator,
-        pwCommand,
-        jsExpression,
-        assertJs,
-        assertPw,
+        jsExpression: `await page.${jsLocator}.highlight();`,
+        assertJs: deriveAssertion(info, locator, ariaSnapshot),
         ref,
         details: {
             tag: info.tag,

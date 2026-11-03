@@ -269,14 +269,14 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
 
         setIsPicking(true);
         try {
-            const result = await chrome.runtime.sendMessage({ type: 'pick' }) as { ok: boolean; info?: ElementPickInfo & { ariaSnapshot?: string; headingContext?: string | null }; error?: string };
+            const result = await chrome.runtime.sendMessage({ type: 'pick' }) as { ok: boolean; info?: ElementPickInfo & { ariaSnapshot?: string }; error?: string };
             if (!result?.ok || !result.info) {
                 if (result?.error !== 'cancelled')
                     dispatch({ type: 'ADD_LINE', line: { text: `Pick failed: ${result?.error ?? 'unknown error'}`, type: 'error' } });
                 return;
             }
             const info = result.info;
-            const pickResult = buildPickResult(info, info.locator, info.ariaSnapshot, info.headingContext);
+            const pickResult = buildPickResult(info, info.locator, info.ariaSnapshot);
             if (info.ariaSnapshot)
                 pickResult.ariaSnapshot = info.ariaSnapshot.replace(/\s*\[(?:ref|cursor)=[^\]]*\]/g, '');
             dispatch({ type: 'ADD_LINE', line: { text: '', type: 'info', pickResult } });

@@ -15,11 +15,9 @@ export type OutputLine = {
 
 export type PickResultData = {
     locator: string;           // "page.getByRole('button', { name: 'Submit' })"
-    pwCommand: string | null;  // 'highlight "Submit"' or null if not expressible
     jsExpression: string;      // "await page.getByRole('button', { name: 'Submit' }).highlight()"
     assertJs?: string;         // "await expect(page.getByRole('button', { name: 'Submit' })).toContainText('Submit')"
-    assertPw?: string;         // 'verify-text "Submit"'
-    ref?: string;              // Snapshot ref (e.g. "e45") — page-scoped, usable in commands like `click e45`
+    ref?: string;              // Snapshot ref (e.g. "e45") from the aria snapshot
     ariaSnapshot?: string;     // YAML aria snapshot of the picked element
     details?: {
         tag: string;
@@ -53,7 +51,3 @@ export type CommandResult = {
     isError: boolean
     image?: string
 }
-
-export type RecordedMessage =
-    | { type: 'pw-recorded-command'; command: string }
-    | { type: 'pw-tab-activated'; url: string };

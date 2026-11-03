@@ -207,45 +207,13 @@ export function getLabel(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelect
         return accumulatedText(parentLabel, el, ctx);
     }
     // Informal associations (e.g. preceding table cell) are excluded here because
-    // getByRole/getByLabel can't resolve them. See getInformalLabel() for fill/select.
+    // getByRole/getByLabel can't resolve them.
     return '';
 }
 
 /** Collapse whitespace sequences (incl. newlines) into a single space, then trim. */
 function normalizeText(s: string): string {
     return (s || '').replace(/\s+/g, ' ').trim();
-}
-
-/**
- * Find informal label text for a form element (e.g. text in an adjacent table
- * cell). Used by the recorder to generate `fill "Label" "value"` instead of
- * `fill css "input#id" "value"`. Mirrors the fillByText runtime fallback in
- * page-scripts.ts which walks up from a getByText match to find a nearby input.
- *
- * Walks up from el through parent elements, checking preceding siblings at each
- * level. This handles nested tables, div/span wrappers, and other structures
- * where the label text is not a direct sibling of the form element.
- */
-export function getInformalLabel(el: Element): string {
-    // Walk up through parent elements, checking preceding siblings at each level.
-    // This naturally handles:
-    //   - nested tables: input→td→tr→tbody→table→(preceding span "Date")
-    //   - div wrappers: select→div→(preceding span "Month")
-    //   - span wrappers: input→span→(preceding span "Label")
-    //   - preceding cells: input→td→(preceding td "Label")
-    let current: Element | null = el;
-    let depth = 0;
-    while (current && current !== document.body && current !== document.documentElement && depth < 8) {
-        let prev: Element | null = current.previousElementSibling;
-        while (prev) {
-            const text = normalizeText(prev.textContent);
-            if (text) return text;
-            prev = prev.previousElementSibling;
-        }
-        current = current.parentElement;
-        depth++;
-    }
-    return '';
 }
 
 // ─── Ancestor context disambiguation ─────────────────────────────────────
@@ -286,78 +254,6 @@ function findContainerAncestor(el: Element): { ancestor: Element; role: string }
         current = current.parentElement;
     }
     return null;
-}
-
-// ─── Heading-based context disambiguation ────────────────────────────────
-
-/**
- * Find the first leaf text in an element, skipping button content.
- * Generic approach — works for headings, banners, labels, or any structure.
- */
-function findLeafText(node: Node): string {
-    for (const child of node.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) {
-            const text = normalizeText(child.textContent || '');
-            if (text && text.length >= 2) return text;
-        }
-        if (child.nodeType === Node.ELEMENT_NODE) {
-            const el = child as Element;
-            if (el.matches('button') || el.closest('button')) continue;
-            const text = findLeafText(el);
-            if (text) return text;
-        }
-    }
-    return '';
-}
-
-/**
- * Walk up from el, find the nearest preceding sibling with distinctive text.
- * Skips siblings that contain links — those are peer items, not section labels.
- */
-function findNearestHeading(el: Element, peers: Element[] = []): { container: Element; text: string } | null {
-    let current = el.parentElement;
-    let depth = 0;
-    while (current && current !== document.body && current !== document.documentElement && depth < 5) {
-        for (const child of current.children) {
-            if (child.contains(el)) break; // stop at el's branch
-            // Skip the other duplicates — a sibling "Select your answer" dropdown
-            // is not a heading for this one.
-            if (peers.some(p => child === p || child.contains(p))) continue;
-            // Skip peer items — section labels don't contain navigation links
-            if (child.matches('a') || child.querySelector('a')) continue;
-            // Skip peer radio/checkbox labels — "Ja" label is not a heading for "Nein"
-            if (child.querySelector('input[type="radio"], input[type="checkbox"]')) continue;
-            if (child.matches('input[type="radio"], input[type="checkbox"]')) continue;
-            // Skip navigation/toolbar chrome — text like "Previous"/"Next" is not a section heading
-            if (child.matches('nav, [role="navigation"], [role="toolbar"], [role="tablist"]')) continue;
-            if (child.closest('nav, [role="navigation"], [role="toolbar"], [role="tablist"]')) continue;
-            const text = findLeafText(child);
-            if (text) return { container: current, text };
-        }
-        current = current.parentElement;
-        depth++;
-    }
-    return null;
-}
-
-/**
- * Try heading-based disambiguation: if each duplicate match has a unique
- * nearest heading, return the heading text for the target element.
- */
-function tryHeadingContext(el: Element, matches: Element[]): string | null {
-    const result = findNearestHeading(el, matches);
-    if (!result) return null;
-
-    // Check uniqueness: only one match should share this heading text
-    let count = 0;
-    for (const match of matches) {
-        const mResult = findNearestHeading(match, matches);
-        if (mResult && mResult.text === result.text) {
-            count++;
-            if (count > 1) return null;
-        }
-    }
-    return count === 1 ? result.text : null;
 }
 
 /**
@@ -478,51 +374,6 @@ export function isHoverRevealed(el: Element): boolean {
     return false;
 }
 
-// ─── Locator string conversion ──────────────────────────────────────────
-
-/**
- * Parse a JS locator string into PW keyword args.
- * e.g. `getByRole('tab', { name: 'npm', exact: true }).nth(1)` → `tab "npm" --nth 1`
- */
-export function locatorToPwArgs(locator: string, role?: string | null): string {
-    const q = (s: string) => `"${s}"`;
-
-    // Extract nth modifier
-    let nth = '';
-    if (/\.first\(\)/.test(locator)) nth = ' --nth 0';
-    else if (/\.last\(\)/.test(locator)) nth = ' --nth -1';
-    else {
-        const nthMatch = locator.match(/\.nth\((\d+)\)/);
-        if (nthMatch) nth = ` --nth ${nthMatch[1]}`;
-    }
-
-    // getByRole with name — already has role
-    const roleNameMatch = locator.match(/getByRole\(['"](.+?)['"],\s*\{[^}]*name:\s*['"](.+?)['"]/);
-    if (roleNameMatch) return `${roleNameMatch[1]} ${q(roleNameMatch[2])}${nth}`;
-
-    // getByRole without name — already has role
-    const roleMatch = locator.match(/getByRole\(['"](.+?)['"]\)/);
-    if (roleMatch) return `${roleMatch[1]}${nth}`;
-
-    // getByTestId — test ID is not an accessible name, don't add role
-    const testIdMatch = locator.match(/getByTestId\(['"](.+?)['"]\)/);
-    if (testIdMatch) return `${q(testIdMatch[1])}${nth}`;
-
-    // getByLabel / getByText / getByPlaceholder / getByTitle / getByAltText — prepend role if available
-    const getByMatch = locator.match(/getBy\w+\(['"](.+?)['"](,\s*\{[^}]*\})?\)/);
-    if (getByMatch) {
-        const prefix = role ? `${role} ` : '';
-        const exact = getByMatch[0].includes('exact: true') ? ' --exact' : '';
-        return `${prefix}${q(getByMatch[1])}${exact}${nth}`;
-    }
-
-    // locator('css') fallback
-    const locatorMatch = locator.match(/locator\(['"](.+?)['"]\)/);
-    if (locatorMatch) return `${q(locatorMatch[1])}${nth}`;
-
-    return q(locator);
-}
-
 // ─── Locator generation ──────────────────────────────────────────────────
 
 export function escapeString(s: string): string {
@@ -616,58 +467,6 @@ export function generateLocator(el: Element): string {
     return `locator(${escapeString(buildCssSelector(el))})`;
 }
 
-/** Shorthand mapping for PW --in flag (listitem → list for readability). */
-const ROLE_SHORTHANDS: Record<string, string> = { listitem: 'list' };
-
-/**
- * Generate separate JS and PW locators.
- * JS uses ancestor context (.filter chains); PW uses --in flag.
- * Falls back to .nth() when ancestor context isn't available.
- */
-export function generateLocatorPair(el: Element): { js: string; pw: string; ancestor?: { role: string; text: string } } {
-    const jsLocator = generateLocator(el);
-
-    // No disambiguation needed — return as-is
-    if (!jsLocator.includes('.filter(') && !jsLocator.includes('.nth(') && !jsLocator.includes('.first()')) {
-        return { js: jsLocator, pw: jsLocator };
-    }
-
-    // JS used ancestor context (.filter chain) — extract ancestor info for PW --in flag
-    if (jsLocator.includes('.filter(')) {
-        const role = getImplicitRole(el)!;
-        const name = getAccessibleName(el);
-        const container = findContainerAncestor(el);
-        const contextText = container ? getContextText(container.ancestor, el) : '';
-
-        if (container && contextText) {
-            const pwLocator = `getByRole(${escapeString(role)}, { name: ${escapeString(name)} })`;
-            const shortRole = ROLE_SHORTHANDS[container.role] ?? container.role;
-            return { js: jsLocator, pw: pwLocator, ancestor: { role: shortRole, text: contextText } };
-        }
-
-        // .filter() present but no container context — fall back to .nth()
-        const matches = findByRoleAndName(role, name);
-        const base = `getByRole(${escapeString(role)}, { name: ${escapeString(name)}, exact: true })`;
-        const idx = matches.indexOf(el);
-        const pwLocator = idx === 0 ? base + '.first()' : base + `.nth(${idx})`;
-        return { js: jsLocator, pw: pwLocator };
-    }
-
-    // .nth()/.first() — try heading context for PW --in flag
-    const role = getImplicitRole(el);
-    const name = getAccessibleName(el);
-    if (role && name) {
-        const matches = findByRoleAndName(role, name);
-        const headingText = tryHeadingContext(el, matches);
-        if (headingText) {
-            const pwLocator = `getByRole(${escapeString(role)}, { name: ${escapeString(name)} })`;
-            return { js: jsLocator, pw: pwLocator, ancestor: { role: '', text: headingText } };
-        }
-    }
-
-    return { js: jsLocator, pw: jsLocator };
-}
-
 // ─── Element classification ─────────────────────────────────────────────
 
 /** Check if element is a text-entry field */
@@ -689,124 +488,29 @@ export function isCheckable(el: Element): boolean {
 
 // ─── Command building ───────────────────────────────────────────────────
 
-/** Build both PW and JS command strings for a recorder action */
-export function buildCommands(action: string, el: Element, opts?: {
+/** Build the Playwright JS line for a recorder action */
+export function buildCommand(action: string, el: Element, opts?: {
     value?: string;
     key?: string;
-    checked?: boolean;
     option?: string;
-}): { pw: string; js: string } | null {
-    const { js: jsLocator, pw: pwLocator, ancestor } = generateLocatorPair(el);
-    const jsLoc = `page.${jsLocator}`;
-    const role = getImplicitRole(el);
-    const pwArgs = locatorToPwArgs(pwLocator, role);
-    const q = (s: string) => `"${s}"`;
-    const inFlag = ancestor
-        ? ` --in ${ancestor.role ? `${ancestor.role} ` : ''}${q(ancestor.text)}`
-        : '';
-    // CSS fallback locators need "css" prefix in PW commands
-    const isCssFallback = pwLocator.startsWith('locator(');
-
-    const cssPrefix = isCssFallback ? 'css ' : '';
+}): string | null {
+    const loc = `page.${generateLocator(el)}`;
 
     switch (action) {
         case 'hover':
-            return {
-                pw: `hover ${cssPrefix}${pwArgs}${inFlag}`,
-                js: `await ${jsLoc}.hover();`,
-            };
-
-        case 'click': {
-            let clickLoc = pwArgs;
-            let clickPrefix = cssPrefix;
-            // For <select> elements, try informal label when CSS fallback or bare role (#800)
-            if (el.tagName === 'SELECT') {
-                const isBareRoleClick = !isCssFallback && /^[a-z]+$/.test(pwArgs);
-                if (isCssFallback || isBareRoleClick) {
-                    const informal = getInformalLabel(el);
-                    if (informal) {
-                        clickLoc = q(informal);
-                        clickPrefix = '';
-                    }
-                }
-            }
-            return {
-                pw: `click ${clickPrefix}${clickLoc}${inFlag}`,
-                js: `await ${jsLoc}.click();`,
-            };
-        }
-
-        case 'fill': {
-            const val = opts?.value ?? '';
-            let fillLoc = pwArgs;
-            let fillPrefix = cssPrefix;
-            const isBareRole = !isCssFallback && /^[a-z]+$/.test(pwArgs);
-            if (isCssFallback || isBareRole) {
-                // Try informal label (e.g. adjacent table-cell text) before CSS.
-                // At runtime, fillByText handles these via DOM-walking fallback.
-                const informal = getInformalLabel(el);
-                if (informal) {
-                    fillLoc = q(informal);
-                    fillPrefix = '';
-                } else if (isBareRole) {
-                    fillLoc = q(buildCssSelector(el));
-                    fillPrefix = 'css ';
-                }
-            }
-            return {
-                pw: `fill ${fillPrefix}${fillLoc} ${q(val)}${inFlag}`,
-                js: `await ${jsLoc}.fill(${escapeString(val)});`,
-            };
-        }
-
+            return `await ${loc}.hover();`;
+        case 'click':
+            return `await ${loc}.click();`;
+        case 'fill':
+            return `await ${loc}.fill(${escapeString(opts?.value ?? '')});`;
         case 'check':
-            return {
-                pw: `check ${cssPrefix}${pwArgs}${inFlag}`,
-                js: `await ${jsLoc}.check();`,
-            };
-
+            return `await ${loc}.check();`;
         case 'uncheck':
-            return {
-                pw: `uncheck ${cssPrefix}${pwArgs}${inFlag}`,
-                js: `await ${jsLoc}.uncheck();`,
-            };
-
-        case 'select': {
-            const optVal = opts?.option ?? '';
-            let selLoc = pwArgs;
-            let selPrefix = cssPrefix;
-            const isBareRoleSel = !isCssFallback && /^[a-z]+$/.test(pwArgs);
-            if (isCssFallback || isBareRoleSel) {
-                const informal = getInformalLabel(el);
-                if (informal) {
-                    selLoc = q(informal);
-                    selPrefix = '';
-                } else if (isBareRoleSel) {
-                    selLoc = q(buildCssSelector(el));
-                    selPrefix = 'css ';
-                }
-            }
-            return {
-                pw: `select ${selPrefix}${selLoc} ${q(optVal)}${inFlag}`,
-                js: `await ${jsLoc}.selectOption(${escapeString(optVal)});`,
-            };
-        }
-
-        case 'press': {
-            const key = opts?.key ?? '';
-            if (pwArgs) {
-                return {
-                    pw: `press ${cssPrefix}${pwArgs} ${key}${inFlag}`,
-                    js: `await ${jsLoc}.press(${escapeString(key)});`,
-                };
-            }
-            // Global key press (no locator context)
-            return {
-                pw: `press ${key}`,
-                js: `await page.keyboard.press(${escapeString(key)});`,
-            };
-        }
-
+            return `await ${loc}.uncheck();`;
+        case 'select':
+            return `await ${loc}.selectOption(${escapeString(opts?.option ?? '')});`;
+        case 'press':
+            return `await ${loc}.press(${escapeString(opts?.key ?? '')});`;
         default:
             return null;
     }
