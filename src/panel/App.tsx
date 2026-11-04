@@ -170,6 +170,7 @@ function App() {
           isStepDebugging={state.isStepDebugging}
           scopeData={state.scopeData}
           onLocalProps={setLocalProps}
+          onInsert={code => editorRef.current?.insertAtCursor(code)}
       />
     </>
   )

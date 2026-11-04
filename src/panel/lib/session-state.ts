@@ -8,7 +8,7 @@ const KEY = 'panelSessionState';
 export interface SessionState {
   editorContent: string;
   breakPoints: number[];
-  bottomTab: 'console' | 'variables';
+  bottomTab: 'console' | 'variables' | 'assert';
   cursorPos: number;
   editorPaneHeight: number | null;
   commandHistory: string[];
