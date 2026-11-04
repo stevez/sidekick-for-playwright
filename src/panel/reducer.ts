@@ -16,7 +16,7 @@ export type PanelState = {
   isAttaching: boolean
   breakPoints: Set<number>
   scopeData: ScopeInfo[]
-  bottomTab: 'console' | 'variables'
+  bottomTab: 'console' | 'variables' | 'assert'
 }
 
 export type Action =
@@ -40,7 +40,7 @@ export type Action =
    | { type: 'UPDATE_URL', url: string }
    | { type: 'SET_BREAKPOINTS', breakPoints: Set<number>}
    | { type: 'SET_SCOPE_DATA', scopes: ScopeInfo[]}
-   | { type: 'SET_BOTTOM_TAB', tab: 'console' | 'variables'}
+   | { type: 'SET_BOTTOM_TAB', tab: 'console' | 'variables' | 'assert'}
 
 export const initialState : PanelState = {
     outputLines: [],

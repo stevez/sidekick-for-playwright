@@ -8,7 +8,7 @@ Record a session as Playwright JavaScript, pick locators, build assertions, run 
 
 Early scaffold. It was split off from [Dramaturg](https://github.com/stevez/playwright-repl/tree/main/packages/extension) as a plain copy and narrowed to JavaScript only, without the `.pw` keyword commands, CLI/MCP bridge, CDP relay or DevTools console.
 
-Working: attach to a tab, record → Playwright JS, run the script, step debugger with breakpoints, element picker, console, tracing, video capture, and **Export spec**. Export spec wraps the script in a Playwright Test file (`.spec.ts` / `.spec.js`), with the test name taken from the page title.
+Working: attach to a tab, record → Playwright JS, run the script, step debugger with breakpoints, element picker, console, tracing, video capture, the **Assert** tab, and **Export spec**. The Assert tab is ported from the playwright-repl VS Code extension: pick an element, choose one of 13 matchers (or an ARIA snapshot), verify it on the live page, and insert it into the script. Export spec wraps the script in a Playwright Test file (`.spec.ts` / `.spec.js`), with the test name taken from the page title.
 
 ## Develop
 

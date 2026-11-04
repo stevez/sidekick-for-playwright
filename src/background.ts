@@ -348,7 +348,7 @@ async function pickElement(): Promise<{ ok: boolean; info?: Record<string, unkno
       const inputType = (attrs.type || '').toLowerCase();
 
       return {
-        tag,
+        tag: tag.toLowerCase(), // pick-info and the assert builder compare lowercase tags
         text: (el as HTMLElement).innerText?.slice(0, 200) ?? '',
         html: el.outerHTML?.slice(0, 500) ?? '',
         attributes: attrs,
