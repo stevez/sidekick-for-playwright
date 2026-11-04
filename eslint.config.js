@@ -16,6 +16,13 @@ export default tseslint.config(
     },
   },
   {
+    // Playwright fixtures without dependencies take an empty `{}` argument
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "no-empty-pattern": "off",
+    },
+  },
+  {
     files: ["types.d.ts"],
     rules: {
       "no-var": "off",

@@ -35,7 +35,15 @@ describe('buildAssertion', () => {
     });
 
     it('negates with not.', () => {
-        expect(buildAssertion(loc, 'toBeVisible', '', true)).toBe(`await expect(${loc}).not.toBeVisible();`);
+        expect(buildAssertion(loc, 'toHaveText', 'Hi', true)).toBe(`await expect(${loc}).not.toHaveText('Hi');`);
+        expect(buildAssertion(loc, 'toBeChecked', '', true)).toBe(`await expect(${loc}).not.toBeChecked();`);
+    });
+
+    it('uses the opposite matcher instead of not. when there is one', () => {
+        expect(buildAssertion(loc, 'toBeVisible', '', true)).toBe(`await expect(${loc}).toBeHidden();`);
+        expect(buildAssertion(loc, 'toBeHidden', '', true)).toBe(`await expect(${loc}).toBeVisible();`);
+        expect(buildAssertion(loc, 'toBeEnabled', '', true)).toBe(`await expect(${loc}).toBeDisabled();`);
+        expect(buildAssertion(loc, 'toBeDisabled', '', true)).toBe(`await expect(${loc}).toBeEnabled();`);
     });
 
     it('quotes and escapes string args', () => {

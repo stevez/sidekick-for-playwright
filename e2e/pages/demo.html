@@ -1,0 +1,6 @@
+<!doctype html>
+<title>Greeting form</title>
+<label>Name <input id="name" value=""></label>
+<label><input id="agree" type="checkbox"> Agree</label>
+<button type="submit" onclick="document.querySelector('#out').textContent = 'Hello ' + document.querySelector('#name').value">Greet</button>
+<p id="out"></p>

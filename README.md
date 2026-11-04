@@ -20,7 +20,10 @@ npm run build        # outputs dist/
 npm run typecheck
 npm run lint
 npm test             # unit tests (Vitest)
+npm run test:e2e     # E2E tests (Playwright, loads dist/ — build first)
 ```
+
+The first E2E run needs a browser: `npx playwright install chromium`.
 
 Load `dist/` as an unpacked extension (`chrome://extensions` → Developer mode → Load unpacked), then click the toolbar icon to open the side panel.
 
