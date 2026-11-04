@@ -31,6 +31,14 @@ export const ALL_ASSERTION_TYPES: AssertionType[] = [
 
 const PAGE_LEVEL = new Set(['toHaveURL', 'toHaveTitle']);
 
+/** Matchers with a dedicated opposite: Not uses the opposite instead of `.not.` (toBeHidden reads better than not.toBeVisible). */
+const OPPOSITES: Record<string, string> = {
+    toBeVisible: 'toBeHidden',
+    toBeHidden: 'toBeVisible',
+    toBeEnabled: 'toBeDisabled',
+    toBeDisabled: 'toBeEnabled',
+};
+
 /** Assertion types that apply to the picked element's tag (checkbox/radio drop toHaveValue). */
 export function filterTypes(tag?: string, inputType?: string): AssertionType[] {
     const t = tag?.toLowerCase();
@@ -48,6 +56,10 @@ function quote(s: string): string {
 export function buildAssertion(locator: string, type: string, arg = '', negate = false): string {
     const typeDef = ALL_ASSERTION_TYPES.find(t => t.value === type);
     if (!typeDef) return '';
+    if (negate && OPPOSITES[type]) {
+        type = OPPOSITES[type];
+        negate = false;
+    }
     const not = negate ? 'not.' : '';
     const target = PAGE_LEVEL.has(type) ? 'page' : locator;
     if (!target) return '';

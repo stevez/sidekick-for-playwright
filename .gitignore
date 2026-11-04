@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.log
 .eslintcache
+test-results/
+playwright-report/
