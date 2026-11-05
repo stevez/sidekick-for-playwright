@@ -64,6 +64,20 @@ test.describe('Assert tab', () => {
     expect(await copied()).toBe(line);
   });
 
+  test('clears all fields', async ({ panel }) => {
+    const clear = panel.getByTestId('assert-clear');
+    await panel.getByTestId('assert-negate').check();
+    await expect(await verify(panel)).toBeVisible();
+    await clear.click();
+    await expect(panel.getByTestId('assert-locator')).toHaveValue('');
+    await expect(panel.getByTestId('assert-aria')).toHaveValue('');
+    await expect(panel.getByTestId('assert-assertion')).toHaveValue('');
+    await expect(panel.getByTestId('assert-type')).toHaveValue('toBeVisible');
+    await expect(panel.getByTestId('assert-negate')).not.toBeChecked();
+    await expect(panel.getByTestId('assert-result')).toHaveCount(0);
+    await expect(clear).toBeDisabled();
+  });
+
   test('offers form matchers for inputs', async ({ panel, target }) => {
     await target.locator('#name').fill('Ada');
     await pick(panel, target, 'assert-pick-btn', () => target.locator('#name').click());

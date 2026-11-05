@@ -14,6 +14,8 @@ type Mode = 'locator' | 'snapshot';
 type Fields = { locator: string; mode: Mode; type: string; arg: string; negate: boolean; snapshot: string };
 type VerifyState = { status: 'idle' | 'running' | 'passed' | 'failed'; message?: string; full?: string };
 
+const EMPTY_FIELDS: Fields = { locator: '', mode: 'locator', type: 'toBeVisible', arg: '', negate: false, snapshot: '' };
+
 const buttonClass = 'bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-1 px-3 font-sans text-[12px] cursor-pointer hover:bg-(--bg-button-hover) disabled:opacity-50 disabled:cursor-default';
 // Verify result box; the status adds its color (tinted from --color-success / --color-error)
 const resultClass = 'py-1.5 px-2 rounded-[4px] border border-solid font-sans text-[12px] break-words';
@@ -40,9 +42,9 @@ function assertionFor(f: Fields): string {
         : buildAssertion(f.locator, f.type, f.arg, f.negate);
 }
 
-/** Assert Builder: pick an element, choose a matcher, verify it on the live page, insert it into the script. */
+/** Assert Builder: pick an element, choose a matcher, verify it on the live page, copy the assertion. */
 export function AssertPane({ incoming }: AssertPaneProps) {
-    const [fields, setFields] = useState<Fields>({ locator: '', mode: 'locator', type: 'toBeVisible', arg: '', negate: false, snapshot: '' });
+    const [fields, setFields] = useState<Fields>(EMPTY_FIELDS);
     const [element, setElement] = useState<{ tag?: string; inputType?: string }>({});
     const [assertion, setAssertion] = useState('');
     const [isPicking, setIsPicking] = useState(false);
@@ -52,6 +54,7 @@ export function AssertPane({ incoming }: AssertPaneProps) {
 
     const types = filterTypes(element.tag, element.inputType);
     const typeDef = types.find(t => t.value === fields.type);
+    const isEmpty = (Object.keys(EMPTY_FIELDS) as (keyof Fields)[]).every(k => fields[k] === EMPTY_FIELDS[k]) && !assertion && verify.status === 'idle' && !pickError;
 
     /** Change builder fields and regenerate the assertion (manual edits to the assertion are replaced). */
     function update(patch: Partial<Fields>) {
@@ -82,6 +85,15 @@ export function AssertPane({ incoming }: AssertPaneProps) {
     useEffect(() => {
         if (incoming) applyPick(incoming.pick);
     }, [incoming]);
+
+    /** Reset the tab to its starting state */
+    function clearAll() {
+        setFields(EMPTY_FIELDS);
+        setElement({});
+        setAssertion('');
+        setVerify({ status: 'idle' });
+        setPickError('');
+    }
 
     async function copyAssertion() {
         await navigator.clipboard.writeText(assertion);
@@ -134,6 +146,13 @@ export function AssertPane({ incoming }: AssertPaneProps) {
                         title={isPicking ? 'Stop picking' : 'Pick element'}
                         onClick={handlePick}
                     ><CrosshairIcon />{isPicking ? 'Picking…' : 'Pick'}</button>
+                    <button
+                        data-testid="assert-clear"
+                        className={`${buttonClass} py-0.5 px-2`}
+                        title="Clear all fields"
+                        disabled={isEmpty || isPicking}
+                        onClick={clearAll}
+                    >Clear</button>
                 </StepTitle>
                 {pickError && <div className="text-(--color-error)" data-testid="assert-pick-error">{pickError}</div>}
                 <label className={labelClass} htmlFor="assert-locator">Locator</label>
@@ -197,7 +216,7 @@ export function AssertPane({ incoming }: AssertPaneProps) {
                 )}
             </section>
 
-            {/* 3. Verify and insert */}
+            {/* 3. Verify and copy */}
             <section className={sectionClass}>
                 <StepTitle step={3} title="Verify and copy" />
                 <textarea
