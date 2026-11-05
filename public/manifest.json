@@ -14,8 +14,6 @@
     "webNavigation"
   ],
   "optional_permissions": [
-    "tabCapture",
-    "offscreen",
     "downloads"
   ],
   "host_permissions": [

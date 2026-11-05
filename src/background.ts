@@ -82,17 +82,6 @@ const patchedExpect: typeof expect = Object.assign(
   _origExpect,
 );
 
-// ─── Offscreen Document (video capture) ─────────────────────────────────────
-
-async function ensureOffscreenDocument() {
-  if (await chrome.offscreen.hasDocument()) return;
-  await chrome.offscreen.createDocument({
-    url: 'offscreen/offscreen.html',
-    reasons: [chrome.offscreen.Reason.USER_MEDIA],
-    justification: 'Video capture of the recorded tab (getUserMedia/MediaRecorder)',
-  });
-}
-
 // ─── Side panel ──────────────────────────────────────────────────────────────
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(e => console.debug('[sidekick] setPanelBehavior:', e));
@@ -270,47 +259,49 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // ─── Video Capture ──────────────────────────────────────────────────────────
 
-let videoRecording = false;
+// Playwright's page.screencast streams JPEG frames of the attached page over the debugger
+// connection; the panel encodes them into a .webm (see panel/lib/video-recorder.ts).
+// No tabCapture: it only works on tabs where the user clicked the extension icon.
+
+const VIDEO_MAX_WIDTH = 1280;
+
+let videoPage: Page | null = null;
 let videoStartTime = 0;
 
 async function startVideoCapture(): Promise<{ ok: boolean; error?: string }> {
-  if (videoRecording) return { ok: false, error: 'Already recording' };
-
-  const tabId = await getActiveTabId();
-  if (!tabId) return { ok: false, error: 'No active tab' };
+  if (videoPage) return { ok: false, error: 'Already recording' };
+  const page = currentPage;
+  if (!page) return { ok: false, error: 'Attach to a tab first' };
 
   try {
-    await ensureOffscreenDocument();
-
-    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-
-    const result = await chrome.runtime.sendMessage({
-      type: 'video-capture-start',
-      streamId,
+    const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+    const scale = Math.min(1, VIDEO_MAX_WIDTH / viewport.width);
+    const even = (n: number) => Math.max(2, Math.round(n * scale / 2) * 2); // video encoders want even dimensions
+    await page.screencast.start({
+      size: { width: even(viewport.width), height: even(viewport.height) },
+      onFrame: frame => {
+        chrome.runtime.sendMessage({ type: 'video-frame', data: frame.data.toString('base64'), timestamp: frame.timestamp }).catch(() => {});
+      },
     });
-
-    if (result?.ok) {
-      videoRecording = true;
-      videoStartTime = Date.now();
-    }
-    return result ?? { ok: false, error: 'No response' };
+    await page.screencast.showActions({ position: 'bottom' }); // like subtitles: clear of headers and nav
+    videoPage = page;
+    videoStartTime = Date.now();
+    return { ok: true };
   } catch (e) {
+    await page.screencast.stop().catch(() => {});
     return { ok: false, error: String(e) };
   }
 }
 
-async function stopVideoCapture(): Promise<{ ok: boolean; error?: string; blobUrl?: string; duration?: number; size?: number }> {
-  if (!videoRecording) return { ok: false, error: 'Not recording' };
-
+async function stopVideoCapture(): Promise<{ ok: boolean; error?: string; duration?: number }> {
+  if (!videoPage) return { ok: false, error: 'Not recording' };
+  const page = videoPage;
+  videoPage = null;
   const duration = Math.round((Date.now() - videoStartTime) / 1000);
-  const result = await chrome.runtime.sendMessage({ type: 'video-capture-stop' });
-  videoRecording = false;
-
-  if (result?.ok && result.blobUrl) {
-    return { ok: true, blobUrl: result.blobUrl, duration, size: result.size };
-  }
-
-  return result ?? { ok: false, error: 'No response' };
+  // The page may already be gone (tab closed / detached); the panel still finalizes what it has
+  await page.screencast.hideActions().catch(e => console.debug('[sidekick] hideActions:', e));
+  await page.screencast.stop().catch(e => console.debug('[sidekick] screencast.stop:', e));
+  return { ok: true, duration };
 }
 
 // ─── Tracing ─────────────────────────────────────────────────────────────────
@@ -432,16 +423,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     })().then(sendResponse).catch((e: Error) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
-  if (msg.type === 'video-state')   { sendResponse({ recording: videoRecording, startTime: videoStartTime }); return false; }
-  if (msg.type === 'video-save') {
-    const d = new Date();
-    const timestamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}-${String(d.getSeconds()).padStart(2, '0')}`;
-    chrome.downloads.download({ url: msg.blobUrl, filename: `tab-recording-${timestamp}.webm`, saveAs: true });
-    // Revoke blob URL after download starts
-    chrome.runtime.sendMessage({ type: 'video-revoke' }).catch(() => {});
-    sendResponse({ ok: true });
-    return false;
-  }
+  if (msg.type === 'video-state')   { sendResponse({ recording: !!videoPage, startTime: videoStartTime }); return false; }
   if (msg.type === 'video-preview') {
     chrome.windows.create({ url: msg.blobUrl, type: 'popup', width: 1280, height: 720 });
     sendResponse({ ok: true });

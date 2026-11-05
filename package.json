@@ -30,9 +30,10 @@
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
     "@lezer/highlight": "^1.2.3",
-    "@playwright-repl/playwright-crx": "^1.22.0",
+    "@playwright-repl/playwright-crx": "^1.22.1",
     "codemirror": "^6.0.2",
     "js-yaml": "^4.1.1",
+    "mediabunny": "1.62.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

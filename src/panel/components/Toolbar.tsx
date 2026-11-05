@@ -9,7 +9,7 @@ import { defaultTestName } from '@/lib/export-spec';
 import type { EditorHandle } from './CodeMirrorEditorPane';
 import { buildPickResult } from '@/lib/pick-info';
 import type { ElementPickInfo } from '@/types';
-import { ensurePermissions, VIDEO_PERMISSIONS } from '@/lib/permissions';
+import { startVideo, stopVideo, isVideoRecording as isVideoRecordingNow } from '@/lib/video-recorder';
 
 interface ToolbarProps extends Pick<PanelState, 'editorContent' | 'stepLine' | 'attachedUrl' | 'attachedTabId' | 'isAttaching' | 'isRunning' | 'isStepDebugging' | 'breakPoints'> {
     dispatch: React.Dispatch<Action>,
@@ -301,14 +301,10 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
         return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
-    // Sync video state on panel load (in case panel reopens mid-recording)
+    // A recording left running by a closed panel can't be finished (its frames went to that panel): stop it
     useEffect(() => {
-        chrome.runtime.sendMessage({ type: 'video-state' }).then((r: { recording?: boolean; startTime?: number }) => {
-            if (r?.recording && r.startTime) {
-                setIsVideoRecording(true);
-                videoStartTimeRef.current = r.startTime;
-                setVideoElapsed(Math.round((Date.now() - r.startTime) / 1000));
-            }
+        chrome.runtime.sendMessage({ type: 'video-state' }).then((r: { recording?: boolean }) => {
+            if (r?.recording && !isVideoRecordingNow()) chrome.runtime.sendMessage({ type: 'video-stop' }).catch(() => {});
         }).catch(() => {});
     }, []);
 
@@ -322,30 +318,22 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
     }, [isVideoRecording]);
 
     async function handleVideoRecord() {
-        if (isVideoRecording) {
-            const r = await chrome.runtime.sendMessage({ type: 'video-stop' });
+        if (isVideoRecording || isVideoRecordingNow()) { // also stops a recording started from the console
+            const r = await stopVideo();
             setIsVideoRecording(false);
-            if (r?.ok && r.blobUrl) {
+            if (r.ok) {
                 dispatch({ type: 'ADD_LINE', line: { text: 'Video recorded', type: 'info', video: r.blobUrl, videoDuration: r.duration, videoSize: r.size } });
-            } else if (r?.error !== 'Not recording') {
-                dispatch({ type: 'ADD_LINE', line: { text: `Video stop failed: ${r?.error ?? 'unknown'}`, type: 'error' } });
+            } else if (r.error !== 'Not recording') {
+                dispatch({ type: 'ADD_LINE', line: { text: `Video stop failed: ${r.error}`, type: 'error' } });
             }
             return;
         }
-        if (!await ensurePermissions(VIDEO_PERMISSIONS)) {
-            dispatch({ type: 'ADD_LINE', line: { text: 'Video needs tab capture permission', type: 'error' } });
-            return;
-        }
-        const r = await chrome.runtime.sendMessage({ type: 'video-start' });
-        if (r?.ok) {
-            setIsVideoRecording(true);
-            videoStartTimeRef.current = Date.now();
-        } else if (r?.error === 'Already recording') {
-            // Out of sync — background is recording but toolbar didn't know
+        const r = await startVideo();
+        if (r.ok) {
             setIsVideoRecording(true);
             videoStartTimeRef.current = Date.now();
         } else {
-            dispatch({ type: 'ADD_LINE', line: { text: `Video failed: ${r?.error ?? 'unknown'}`, type: 'error' } });
+            dispatch({ type: 'ADD_LINE', line: { text: `Video failed: ${r.error ?? 'unknown'}`, type: 'error' } });
         }
     }
 
