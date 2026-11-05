@@ -1,10 +1,11 @@
 import { EditorView, keymap, placeholder, drawSelection } from '@codemirror/view';
 import { javascript, javascriptLanguage } from '@codemirror/lang-javascript';
-import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+import { syntaxHighlighting } from '@codemirror/language';
 import { history, historyKeymap } from '@codemirror/commands';
 import { autocompletion, acceptCompletion, completionStatus, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { playwrightCompletions } from '@/lib/pw-completion-source';
+import { jsHighlightStyle } from '@/lib/codemirror-setup';
 
 interface Opts {
     onSubmit:    (value: string) => void;
@@ -82,7 +83,7 @@ export function consoleExtensions(opts: Opts): Extension[] {
         javascriptLanguage.data.of({ autocomplete: playwrightCompletions }),
         autocompletion(),
         closeBrackets(),
-        syntaxHighlighting(defaultHighlightStyle),
+        syntaxHighlighting(jsHighlightStyle),
         drawSelection(),
         history(),
         keymap.of([...closeBracketsKeymap, ...historyKeymap]),

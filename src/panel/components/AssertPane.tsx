@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { buildPickResult } from '@/lib/pick-info';
 import { executeCommand } from '@/lib/bridge';
 import { filterTypes, buildAssertion, buildSnapshotAssertion, parseAssertion, summarizeFailure } from '@/lib/assert-builder';
@@ -13,9 +13,25 @@ type Mode = 'locator' | 'snapshot';
 type Fields = { locator: string; mode: Mode; type: string; arg: string; negate: boolean; snapshot: string };
 type VerifyState = { status: 'idle' | 'running' | 'passed' | 'failed'; message?: string; full?: string };
 
-const buttonClass = 'bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-1 px-3 font-[inherit] text-[12px] cursor-pointer hover:bg-(--bg-button-hover) disabled:opacity-50';
-const inputClass = 'bg-(--bg-editor) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-1 px-2 font-[inherit] text-[12px]';
-const labelClass = 'text-[11px] text-(--text-dim)';
+const buttonClass = 'bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-1 px-3 font-sans text-[12px] cursor-pointer hover:bg-(--bg-button-hover) disabled:opacity-50 disabled:cursor-default';
+// Verify result box; the status adds its color (tinted from --color-success / --color-error)
+const resultClass = 'py-1.5 px-2 rounded-[4px] border border-solid font-sans text-[12px] break-words';
+const inputClass = 'bg-(--bg-editor) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-1 px-2 font-[inherit] text-[12px] focus:outline-none focus:border-(--color-splitter-handle-hover)';
+// UI text (labels, titles) uses the sans font, so it stands apart from the monospace code
+const labelClass = 'font-sans text-[11px] text-(--text-dim)';
+const optionClass = 'flex items-center gap-1 font-sans cursor-pointer accent-(--color-run-bg)';
+const sectionClass = 'flex flex-col gap-1.5 p-2 rounded-[4px] border border-solid border-(--border-primary) bg-(--bg-toolbar)';
+
+/** Numbered step heading: green badge plus a bold sans-serif title */
+function StepTitle({ step, title, children }: { step: number; title: string; children?: ReactNode }) {
+    return (
+        <div className="flex items-center gap-2 min-h-6">
+            <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-(--color-run-bg) text-white font-sans text-[11px] font-bold shrink-0">{step}</span>
+            <span className="font-sans text-[13px] font-semibold">{title}</span>
+            {children}
+        </div>
+    );
+}
 
 function assertionFor(f: Fields): string {
     return f.mode === 'snapshot'
@@ -91,19 +107,17 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
     }
 
     return (
-        <div className="flex flex-col gap-3 flex-1 overflow-y-auto p-2 text-[12px]" data-testid="assert-pane">
+        <div className="flex flex-col gap-2 flex-1 overflow-y-auto p-2 text-[12px]" data-testid="assert-pane">
             {/* 1. Pick */}
-            <section className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                    <span>1</span>
+            <section className={sectionClass}>
+                <StepTitle step={1} title="Pick element">
                     <button
                         data-testid="assert-pick-btn"
-                        className={isPicking ? 'picking' : ''}
+                        className={`${buttonClass} ml-auto flex items-center gap-1 py-0.5 px-2 ${isPicking ? 'picking bg-(--bg-run-line) text-(--color-snapshot) border-(--color-snapshot)' : ''}`}
                         title={isPicking ? 'Stop picking' : 'Pick element'}
                         onClick={handlePick}
-                    ><CrosshairIcon /></button>
-                    <span>Pick element</span>
-                </div>
+                    ><CrosshairIcon />{isPicking ? 'Picking…' : 'Pick'}</button>
+                </StepTitle>
                 {pickError && <div className="text-(--color-error)" data-testid="assert-pick-error">{pickError}</div>}
                 <label className={labelClass} htmlFor="assert-locator">Locator</label>
                 <input
@@ -127,19 +141,18 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
             </section>
 
             {/* 2. Assert using */}
-            <section className="flex flex-col gap-1">
+            <section className={sectionClass}>
+                <StepTitle step={2} title="Assert using" />
                 <div className="flex items-center gap-3">
-                    <span>2</span>
-                    <span>Assert using</span>
-                    <label className="flex items-center gap-1">
+                    <label className={optionClass}>
                         <input type="radio" name="assert-mode" data-testid="assert-mode-locator" checked={fields.mode === 'locator'} onChange={() => update({ mode: 'locator' })} />
                         Locator
                     </label>
-                    <label className="flex items-center gap-1">
+                    <label className={optionClass}>
                         <input type="radio" name="assert-mode" data-testid="assert-mode-snapshot" checked={fields.mode === 'snapshot'} onChange={() => update({ mode: 'snapshot' })} />
                         Snapshot
                     </label>
-                    <label className="flex items-center gap-1">
+                    <label className={`${optionClass} ml-auto`}>
                         <input type="checkbox" data-testid="assert-negate" checked={fields.negate} onChange={e => update({ negate: e.target.checked })} />
                         Not
                     </label>
@@ -168,11 +181,8 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
             </section>
 
             {/* 3. Verify and insert */}
-            <section className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                    <span>3</span>
-                    <span>Verify</span>
-                </div>
+            <section className={sectionClass}>
+                <StepTitle step={3} title="Verify and insert" />
                 <textarea
                     data-testid="assert-assertion"
                     className={inputClass}
@@ -181,6 +191,22 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
                     value={assertion}
                     onChange={e => { setAssertion(e.target.value); setVerify({ status: 'idle' }); }}
                 />
+                {verify.status === 'passed' && (
+                    <div data-testid="assert-result" data-status="passed" className={`${resultClass} font-semibold text-(--color-success) border-[color-mix(in_srgb,var(--color-success)_40%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_10%,transparent)]`}>
+                        ✓ Passed
+                    </div>
+                )}
+                {verify.status === 'failed' && (
+                    <div data-testid="assert-result" data-status="failed" className={`${resultClass} text-(--color-error) border-[color-mix(in_srgb,var(--color-error)_40%,transparent)] bg-[color-mix(in_srgb,var(--color-error)_10%,transparent)]`}>
+                        <div className="font-semibold">✗ {verify.message}</div>
+                        {verify.full && verify.full !== verify.message && (
+                            <details className="mt-1 text-(--text-default)">
+                                <summary className="cursor-pointer text-(--text-dim)">Full error</summary>
+                                <pre className="mt-1 m-0 whitespace-pre-wrap break-words font-[inherit] text-[11px]">{verify.full}</pre>
+                            </details>
+                        )}
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <button data-testid="assert-verify" className={buttonClass} disabled={!assertion.trim() || verify.status === 'running'} onClick={handleVerify}>
                         {verify.status === 'running' ? 'Verifying...' : 'Verify'}
@@ -188,8 +214,6 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
                     <button data-testid="assert-insert" className={buttonClass} disabled={!assertion.trim()} onClick={() => onInsert(assertion)}>
                         Insert
                     </button>
-                    {verify.status === 'passed' && <span data-testid="assert-result" data-status="passed" className="text-(--color-success)">✓ Passed</span>}
-                    {verify.status === 'failed' && <span data-testid="assert-result" data-status="failed" className="text-(--color-error)" title={verify.full}>✗ {verify.message}</span>}
                 </div>
             </section>
         </div>

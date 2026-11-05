@@ -14,7 +14,7 @@ export function BottomPane({isStepDebugging, bottomTab, outputLines, dispatch, s
     return (
         <div className="flex flex-col flex-1 min-h-20 overflow-hidden" data-testid="bottom-pane">
         {/* Tab bar */}
-        <div  className="flex items-center gap-3 px-2 py-0.5 border-b border-(--border-primary) bg-(--bg-toolbar) shrink-0">
+        <div  className="flex items-center gap-3 px-2 py-0.5 font-(family-name:--font-ui) border-b border-(--border-primary) bg-(--bg-toolbar) shrink-0">
            <button
                 data-active={bottomTab === 'console' ? '' : undefined}
                 onClick={() => dispatch({ type: 'SET_BOTTOM_TAB', tab: 'console'})}
