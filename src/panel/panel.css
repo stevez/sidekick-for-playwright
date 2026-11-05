@@ -3,6 +3,11 @@
 /* === Theme variables === */
 
 :root {
+  /* Fonts: UI text (toolbar, tabs, labels) vs code (editor, console) */
+  --font-ui: system-ui, "Segoe UI", -apple-system, sans-serif;
+  --font-code: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+  --font-size-code: 13px;
+
   /* Light theme (default — matches Chrome DevTools) */
   --bg-body: #ffffff;
   --bg-toolbar: #f3f3f3;
@@ -18,9 +23,9 @@
   --bg-scrollbar-thumb-hover: #a8a8a8;
 
   --text-default: #1e1e1e;
-  --text-line-numbers: #858585;
+  --text-line-numbers: #6e7781;
   --text-dim: #6e6e6e;
-  --text-placeholder: #a0a0a0;
+  --text-placeholder: #767676;
 
   --border-primary: #d4d4d4;
   --border-button: #c8c8c8;
@@ -35,10 +40,13 @@
   --color-success: #2e7d32;
   --color-command: #0451a5;
   --color-snapshot: #0070c1;
-  --color-comment: #6a9955;
-  --color-string: #a31515;
-  --color-flag: #795e26;
-  --color-url: #0070c1;
+
+  /* Syntax: editor, console input and logged objects */
+  --syntax-keyword: #7c3aed;
+  --syntax-property: #0550ae;
+  --syntax-string: #116329;
+  --syntax-number: #b35900;
+  --syntax-comment: #6e7781;
   --color-active-line: #795e26;
   --color-line-pass: #2e7d32;
   --color-line-fail: #d32f2f;
@@ -66,9 +74,9 @@
   --bg-scrollbar-thumb-hover: #555555;
 
   --text-default: #d4d4d4;
-  --text-line-numbers: #858585;
+  --text-line-numbers: #8b949e;
   --text-dim: #888888;
-  --text-placeholder: #555555;
+  --text-placeholder: #8a8a8a;
 
   --border-primary: #333333;
   --border-button: #444444;
@@ -83,10 +91,12 @@
   --color-success: #6a9955;
   --color-command: #569cd6;
   --color-snapshot: #9cdcfe;
-  --color-comment: #6a9955;
-  --color-string: #ce9178;
-  --color-flag: #dcdcaa;
-  --color-url: #9cdcfe;
+
+  --syntax-keyword: #c4a7ff;
+  --syntax-property: #79c0ff;
+  --syntax-string: #7ee787;
+  --syntax-number: #ffa657;
+  --syntax-comment: #8b949e;
   --color-active-line: #dcdcaa;
   --color-line-pass: #6a9955;
   --color-line-fail: #f44747;
@@ -120,18 +130,34 @@ html, body {
 
 /* === Toolbar (top) === */
 
+#toolbar {
+  font-family: var(--font-ui);
+}
+
 #toolbar button {
   background: var(--bg-button);
   color: var(--text-default);
   border: 1px solid var(--border-button);
   border-radius: 4px;
-  padding: 4px 6px;
+  padding: 5px 7px;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+#toolbar select {
+  background: var(--bg-editor);
+  color: var(--text-default);
+  border: 1px solid var(--border-button);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  max-width: 220px;
+  cursor: pointer;
 }
 
 #toolbar button:hover {
@@ -234,11 +260,11 @@ html, body {
 
 /* === ObjectTree === */
 
-.ot-key    { color: var(--color-flag); }
+.ot-key    { color: var(--syntax-property); }
 .ot-colon  { color: var(--text-dim); }
-.ot-string { color: var(--color-string); word-break: break-word; }
-.ot-number { color: var(--color-url); }
-.ot-boolean { color: var(--color-url); }
+.ot-string { color: var(--syntax-string); word-break: break-word; }
+.ot-number { color: var(--syntax-number); }
+.ot-boolean { color: var(--syntax-number); }
 .ot-null, .ot-undefined { color: var(--text-dim); font-style: italic; }
 .ot-empty  { color: var(--text-dim); }
 

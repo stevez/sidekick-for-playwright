@@ -18,12 +18,12 @@ const pwTheme = EditorView.theme({
         backgroundColor: 'var(--bg-editor)',
         color: 'var(--text-default)',
         height: '100%',
-        fontSize: '13px',
-        fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace'
+        fontSize: 'var(--font-size-code)',
+        fontFamily: 'var(--font-code)'
     },
     '.cm-content': {                // the editable area
         caretColor: 'var(--color-caret)',
-        lineHeight: '18px',
+        lineHeight: '1.5',
         padding: '8px 0',
     },
     '.cm-cursor': {                 // blinking cursor
@@ -252,14 +252,15 @@ export function dispatchRunState(
 
 export const languageCompartment = new Compartment();
 
-const jsHighlightStyle = HighlightStyle.define([
-    { tag: tags.keyword,                      color: 'var(--color-command)' },
-    { tag: tags.string,                       color: 'var(--color-string)' },
-    { tag: tags.number,                       color: 'var(--color-url)' },
-    { tag: tags.bool,                         color: 'var(--color-url)' },
+// Shared with the console input (cm-console-setup.ts)
+export const jsHighlightStyle = HighlightStyle.define([
+    { tag: tags.keyword,                      color: 'var(--syntax-keyword)' },
+    { tag: tags.string,                       color: 'var(--syntax-string)' },
+    { tag: tags.number,                       color: 'var(--syntax-number)' },
+    { tag: tags.bool,                         color: 'var(--syntax-number)' },
     { tag: tags.null,                         color: 'var(--text-dim)', fontStyle: 'italic' },
-    { tag: tags.comment,                      color: 'var(--color-comment)', fontStyle: 'italic' },
-    { tag: tags.propertyName,                 color: 'var(--color-flag)' },
+    { tag: tags.comment,                      color: 'var(--syntax-comment)', fontStyle: 'italic' },
+    { tag: tags.propertyName,                 color: 'var(--syntax-property)' },
     { tag: tags.definition(tags.variableName),color: 'var(--color-active-line)' },
 ]);
 
