@@ -1,12 +1,13 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { buildPickResult } from '@/lib/pick-info';
 import { executeCommand } from '@/lib/bridge';
 import { filterTypes, buildAssertion, buildSnapshotAssertion, parseAssertion, summarizeFailure } from '@/lib/assert-builder';
 import { CrosshairIcon } from './Icons';
-import type { ElementPickInfo } from '@/types';
+import type { ElementPickInfo, PickResultData } from '@/types';
 
 interface AssertPaneProps {
-    onInsert: (code: string) => void;
+    /** Element sent from the console's Pick card (a new object on every send) */
+    incoming?: { pick: PickResultData } | null;
 }
 
 type Mode = 'locator' | 'snapshot';
@@ -40,13 +41,14 @@ function assertionFor(f: Fields): string {
 }
 
 /** Assert Builder: pick an element, choose a matcher, verify it on the live page, insert it into the script. */
-export function AssertPane({ onInsert }: AssertPaneProps) {
+export function AssertPane({ incoming }: AssertPaneProps) {
     const [fields, setFields] = useState<Fields>({ locator: '', mode: 'locator', type: 'toBeVisible', arg: '', negate: false, snapshot: '' });
     const [element, setElement] = useState<{ tag?: string; inputType?: string }>({});
     const [assertion, setAssertion] = useState('');
     const [isPicking, setIsPicking] = useState(false);
     const [verify, setVerify] = useState<VerifyState>({ status: 'idle' });
     const [pickError, setPickError] = useState('');
+    const [copied, setCopied] = useState(false);
 
     const types = filterTypes(element.tag, element.inputType);
     const typeDef = types.find(t => t.value === fields.type);
@@ -57,6 +59,34 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
         setFields(next);
         setAssertion(assertionFor(next));
         setVerify({ status: 'idle' });
+    }
+
+    /** Fill the builder from a picked element, starting from the picker's suggested assertion */
+    function applyPick(pick: PickResultData) {
+        const parsed = parseAssertion(pick.assertJs ?? '');
+        const next: Fields = {
+            locator: pick.locator,
+            mode: 'locator',
+            type: parsed?.type ?? 'toBeVisible',
+            arg: parsed?.arg ?? '',
+            negate: parsed?.negate ?? false,
+            snapshot: pick.ariaSnapshot ?? '',
+        };
+        setElement({ tag: pick.details?.tag, inputType: pick.details?.attributes?.type?.toLowerCase() });
+        setFields(next);
+        setAssertion(assertionFor(next));
+        setVerify({ status: 'idle' });
+        setPickError('');
+    }
+
+    useEffect(() => {
+        if (incoming) applyPick(incoming.pick);
+    }, [incoming]);
+
+    async function copyAssertion() {
+        await navigator.clipboard.writeText(assertion);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
     }
 
     async function handlePick() {
@@ -75,21 +105,8 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
             }
             const info = result.info;
             const pick = buildPickResult(info, info.locator, info.ariaSnapshot);
-            const snapshot = info.ariaSnapshot?.replace(/\s*\[(?:ref|cursor)=[^\]]*\]/g, '') ?? '';
-            // Start from the picker's suggested assertion
-            const parsed = parseAssertion(pick.assertJs ?? '');
-            const next: Fields = {
-                locator: pick.locator,
-                mode: 'locator',
-                type: parsed?.type ?? 'toBeVisible',
-                arg: parsed?.arg ?? '',
-                negate: parsed?.negate ?? false,
-                snapshot,
-            };
-            setElement({ tag: info.tag, inputType: info.attributes?.type?.toLowerCase() });
-            setFields(next);
-            setAssertion(assertionFor(next));
-            setVerify({ status: 'idle' });
+            pick.ariaSnapshot = info.ariaSnapshot?.replace(/\s*\[(?:ref|cursor)=[^\]]*\]/g, '');
+            applyPick(pick);
         } catch (e) {
             setPickError(`Pick failed: ${String(e)}`);
         } finally {
@@ -182,7 +199,7 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
 
             {/* 3. Verify and insert */}
             <section className={sectionClass}>
-                <StepTitle step={3} title="Verify and insert" />
+                <StepTitle step={3} title="Verify and copy" />
                 <textarea
                     data-testid="assert-assertion"
                     className={inputClass}
@@ -211,8 +228,8 @@ export function AssertPane({ onInsert }: AssertPaneProps) {
                     <button data-testid="assert-verify" className={buttonClass} disabled={!assertion.trim() || verify.status === 'running'} onClick={handleVerify}>
                         {verify.status === 'running' ? 'Verifying...' : 'Verify'}
                     </button>
-                    <button data-testid="assert-insert" className={buttonClass} disabled={!assertion.trim()} onClick={() => onInsert(assertion)}>
-                        Insert
+                    <button data-testid="assert-copy" className={buttonClass} disabled={!assertion.trim()} onClick={copyAssertion}>
+                        {copied ? 'Copied' : 'Copy'}
                     </button>
                 </div>
             </section>
