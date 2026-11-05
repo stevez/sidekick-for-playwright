@@ -58,7 +58,6 @@ export default defineConfig({
       input: {
         background: resolve(__dirname, "src/background.ts"),
         "panel/panel": resolve(__dirname, "src/panel/panel.html"),
-        "offscreen/offscreen": resolve(__dirname, "src/offscreen/offscreen.html"),
       },
       output: {
         entryFileNames: "[name].js",

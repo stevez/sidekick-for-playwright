@@ -2,7 +2,8 @@ export type CommandResult = { text: string; isError: boolean; image?: string };
 export type { CdpRemoteObject } from '@/components/Console/cdpToSerialized';
 import type { CdpRemoteObject } from '@/components/Console/cdpToSerialized';
 import { loadSettings } from './settings';
-import { ensurePermissions, VIDEO_PERMISSIONS, DOWNLOAD_PERMISSIONS } from './permissions';
+import { ensurePermissions, DOWNLOAD_PERMISSIONS } from './permissions';
+import { startVideo, stopVideo } from './video-recorder';
 export type ConsoleCommandResult = { cdpResult: CdpRemoteObject } | { text: string; image?: string; video?: string; duration?: number; size?: number; trace?: boolean; traceSize?: number };
 
 type CdpResult = { type?: string; value?: unknown; description?: string; objectId?: string };
@@ -17,7 +18,6 @@ const CAPTURE_COMMANDS: Record<string, string> = {
 
 /** Optional permissions a capture command needs; requested on first use. */
 async function captureAllowed(cmdName: string): Promise<boolean> {
-  if (cmdName === 'video-start') return ensurePermissions(VIDEO_PERMISSIONS);
   if (cmdName === 'tracing-stop') return ensurePermissions(DOWNLOAD_PERMISSIONS);
   return true;
 }
@@ -94,11 +94,15 @@ export async function executeCommand(command: string): Promise<CommandResult> {
 export async function executeCommandForConsole(command: string): Promise<ConsoleCommandResult> {
   const cmdName = command.trim().toLowerCase();
   if (cmdName in CAPTURE_COMMANDS && !await captureAllowed(cmdName)) throw new Error('Permission not granted');
-  if (cmdName === 'video-start' || cmdName === 'video-stop') {
-    const r = await chrome.runtime.sendMessage({ type: cmdName });
-    if (!r?.ok) throw new Error(r?.error || 'Failed');
-    if (cmdName === 'video-stop' && r.blobUrl) return { text: 'Video recorded', video: r.blobUrl, duration: r.duration, size: r.size };
+  if (cmdName === 'video-start') {
+    const r = await startVideo();
+    if (!r.ok) throw new Error(r.error || 'Failed');
     return { text: 'Video recording started' };
+  }
+  if (cmdName === 'video-stop') {
+    const r = await stopVideo();
+    if (!r.ok) throw new Error(r.error);
+    return { text: 'Video recorded', video: r.blobUrl, duration: r.duration, size: r.size };
   }
   if (cmdName === 'tracing-start' || cmdName === 'tracing-stop') {
     const r = await chrome.runtime.sendMessage({ type: cmdName });

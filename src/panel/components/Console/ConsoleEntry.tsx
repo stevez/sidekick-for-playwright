@@ -5,7 +5,7 @@ import { pickResultToSerialized } from '@/lib/pick-info';
 import { parseSnapshot } from '@/lib/snapshot-parser';
 import Lightbox from '../Lightbox';
 import { saveToFile } from '@/lib/file-utils';
-import { ensurePermissions, DOWNLOAD_PERMISSIONS } from '@/lib/permissions';
+import { saveVideo } from '@/lib/video-recorder';
 import type { ConsoleEntry as Entry } from './types';
 
 function formatDuration(seconds: number): string {
@@ -70,7 +70,7 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                                 >View Trace</button>
                             </div>
                         ) : entry.video !== undefined ? (
-                            <div data-type="video" className="flex items-center gap-2 py-1">
+                            <div data-type="video" data-blob-url={entry.video} className="flex items-center gap-2 py-1">
                                 <span className="text-(--color-success)">Video recorded{entry.videoDuration !== undefined ? ` (${formatDuration(entry.videoDuration)}, ${formatSize(entry.videoSize ?? 0)})` : ''}</span>
                                 <button
                                     className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[11px] cursor-pointer hover:bg-(--bg-button-hover)"
@@ -78,10 +78,7 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                                 >Preview</button>
                                 <button
                                     className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[11px] cursor-pointer hover:bg-(--bg-button-hover)"
-                                    onClick={async () => {
-                                        if (await ensurePermissions(DOWNLOAD_PERMISSIONS))
-                                            chrome.runtime.sendMessage({ type: 'video-save', blobUrl: entry.video });
-                                    }}
+                                    onClick={() => saveVideo(entry.video!)}
                                 >Save Video</button>
                             </div>
                         ) : entry.image !== undefined ? (

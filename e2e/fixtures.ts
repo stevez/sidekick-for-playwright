@@ -25,6 +25,8 @@ type Fixtures = {
 type WorkerFixtures = {
   /** Base URL of a static server for e2e/pages. */
   siteURL: string;
+  /** Copy of dist/ with optional permissions granted. */
+  extensionPath: string;
 };
 
 export const test = base.extend<Fixtures, WorkerFixtures>({
@@ -40,12 +42,28 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     server.close();
   }, { scope: 'worker' }],
 
-  context: async ({}, use) => {
+  extensionPath: [async ({}, use) => {
     if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) throw new Error('dist/ not found — run `npm run build` first');
+    // Tests can't click Chrome's permission prompt, so load a copy of dist/ with the
+    // optional permissions (video, downloads) already granted as required ones.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sidekick-ext-'));
+    fs.cpSync(EXTENSION_PATH, dir, { recursive: true });
+    const manifestFile = path.join(dir, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    manifest.permissions = [...manifest.permissions, ...(manifest.optional_permissions ?? [])];
+    delete manifest.optional_permissions;
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+    await use(dir);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }, { scope: 'worker' }],
+
+  context: async ({ extensionPath }, use) => {
     const context = await chromium.launchPersistentContext(fs.mkdtempSync(path.join(os.tmpdir(), 'sidekick-e2e-')), {
       channel: 'chromium',
       headless: !process.env.HEADED,
-      args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-first-run', '--no-default-browser-check'],
+      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-first-run', '--no-default-browser-check',
+        // Fractional scaling (125% is common on Windows) is what real users run; it once dropped every video frame
+        '--force-device-scale-factor=1.25'],
     });
     await use(context);
     await context.close();
