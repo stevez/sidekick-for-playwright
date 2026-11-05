@@ -68,3 +68,10 @@ declare module "vitest-chrome/lib/index.esm.js" {
   const chrome: typeof globalThis.chrome;
   export = chrome;
 }
+
+// ─── Virtual modules (vite.config.ts) ────────────────────────────────────────
+
+declare module 'virtual:pw-completions' {
+  const data: import('./scripts/completions').CompletionData;
+  export default data;
+}

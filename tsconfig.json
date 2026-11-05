@@ -15,5 +15,5 @@
       "@/*": ["./src/panel/*"]
     }
   },
-  "include": ["src", "test", "e2e", "playwright.config.ts", "types.d.ts"]
+  "include": ["src", "test", "e2e", "scripts", "playwright.config.ts", "types.d.ts"]
 }
