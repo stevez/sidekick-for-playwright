@@ -26,18 +26,13 @@ function applyMethod(view: { dispatch: (spec: { changes: { from: number; to: num
   });
 }
 
-import PW_COMPLETIONS from "./pw-completions.json";
+// Generated at build time from the Playwright types bundled in playwright-crx
+// (scripts/completions.ts)
+import PW_COMPLETIONS from "virtual:pw-completions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type InterfaceName = keyof typeof PW_COMPLETIONS;
-
-interface RawCompletion {
-  label: string;
-  type: string;
-  detail?: string;
-  info?: string;
-}
+type InterfaceName = string;
 
 // ── Variable → Interface map ──────────────────────────────────────────────────
 //
@@ -87,97 +82,31 @@ const VAR_TO_INTERFACE: Record<string, InterfaceName> = {
 //
 // Maps method names to the interface they return, enabling chained completions.
 // e.g. page.getByRole("button"). → Locator methods
+// Built from the types; a name that returns different interfaces on different
+// receivers (e.g. on() returns `this`) is ambiguous and left out.
 
-const METHOD_RETURN_TYPE: Record<string, InterfaceName> = {
-  // → Locator
-  getByRole: "Locator", getByText: "Locator", getByLabel: "Locator",
-  getByPlaceholder: "Locator", getByAltText: "Locator", getByTitle: "Locator",
-  getByTestId: "Locator", locator: "Locator",
-  first: "Locator", last: "Locator", nth: "Locator",
-  filter: "Locator", and: "Locator", or: "Locator",
-  // → Frame
-  frame: "Frame", mainFrame: "Frame",
-  contentFrame: "Frame", parentFrame: "Frame",
-  // → Keyboard / Mouse / Touchscreen (page.keyboard. etc.)
-  keyboard: "Keyboard", mouse: "Mouse", touchscreen: "Touchscreen",
-  // → Request / Response
-  request: "Request", response: "Response",
-};
+function buildReturnTypes(): Map<string, InterfaceName> {
+  const found = new Map<string, Set<InterfaceName>>();
+  for (const members of Object.values(PW_COMPLETIONS)) {
+    for (const { label, returns } of members) {
+      if (!returns) continue;
+      if (!found.has(label)) found.set(label, new Set());
+      found.get(label)!.add(returns);
+    }
+  }
+  return new Map([...found].filter(([, types]) => types.size === 1).map(([label, types]) => [label, [...types][0]]));
+}
+
+const METHOD_RETURN_TYPE = buildReturnTypes();
 
 // ── Locator-returning methods (for expect() type resolution) ─────────────────
 
-const LOCATOR_RETURNING = new Set([
-  "getByText", "getByRole", "getByLabel", "getByPlaceholder",
-  "getByAltText", "getByTitle", "getByTestId",
-  "locator", "nth", "first", "last", "filter", "and", "or",
-]);
+const LOCATOR_RETURNING = new Set([...METHOD_RETURN_TYPE].filter(([, type]) => type === "Locator").map(([label]) => label));
 
 // ── Assertion matchers ────────────────────────────────────────────────────────
 
-interface AssertionEntry {
-  label: string;
-  detail: string;
-  info: string;
-}
-
-const LOCATOR_ASSERTIONS: AssertionEntry[] = [
-  { label: "toBeAttached",     detail: "(options?) => Promise<void>",               info: "Ensures element is attached to the DOM." },
-  { label: "toBeChecked",      detail: "(options?) => Promise<void>",               info: "Ensures checkbox or radio is checked." },
-  { label: "toBeDisabled",     detail: "(options?) => Promise<void>",               info: "Ensures element is disabled." },
-  { label: "toBeEditable",     detail: "(options?) => Promise<void>",               info: "Ensures element is editable." },
-  { label: "toBeEmpty",        detail: "(options?) => Promise<void>",               info: "Ensures element has no text or is an empty input." },
-  { label: "toBeEnabled",      detail: "(options?) => Promise<void>",               info: "Ensures element is enabled." },
-  { label: "toBeFocused",      detail: "(options?) => Promise<void>",               info: "Ensures element is focused." },
-  { label: "toBeHidden",       detail: "(options?) => Promise<void>",               info: "Ensures element is not visible." },
-  { label: "toBeInViewport",   detail: "(options?) => Promise<void>",               info: "Ensures element intersects the viewport." },
-  { label: "toBeVisible",      detail: "(options?) => Promise<void>",               info: "Ensures element is visible." },
-  { label: "toContainText",    detail: "(text, options?) => Promise<void>",         info: "Ensures element contains the given text." },
-  { label: "toHaveAccessibleDescription", detail: "(description, options?) => Promise<void>", info: "Ensures element has the given accessible description." },
-  { label: "toHaveAccessibleName",        detail: "(name, options?) => Promise<void>",         info: "Ensures element has the given accessible name." },
-  { label: "toHaveAttribute",  detail: "(name, value, options?) => Promise<void>",  info: "Ensures element has the given attribute and value." },
-  { label: "toHaveClass",      detail: "(expected, options?) => Promise<void>",     info: "Ensures element has the given CSS class(es)." },
-  { label: "toHaveCount",      detail: "(count, options?) => Promise<void>",        info: "Ensures locator resolves to exactly N elements." },
-  { label: "toHaveCSS",        detail: "(name, value, options?) => Promise<void>",  info: "Ensures element has the given CSS property value." },
-  { label: "toHaveId",         detail: "(id, options?) => Promise<void>",           info: "Ensures element has the given id attribute." },
-  { label: "toHaveJSProperty", detail: "(name, value, options?) => Promise<void>",  info: "Ensures element has the given JS property value." },
-  { label: "toHaveRole",       detail: "(role, options?) => Promise<void>",         info: "Ensures element has the given ARIA role." },
-  { label: "toHaveScreenshot", detail: "(name?, options?) => Promise<void>",        info: "Ensures element matches a screenshot." },
-  { label: "toHaveText",       detail: "(text, options?) => Promise<void>",         info: "Ensures element has the given text content." },
-  { label: "toHaveValue",      detail: "(value, options?) => Promise<void>",        info: "Ensures input element has the given value." },
-  { label: "toHaveValues",     detail: "(values, options?) => Promise<void>",       info: "Ensures multi-select has the given selected values." },
-];
-
-const PAGE_ASSERTIONS: AssertionEntry[] = [
-  { label: "toHaveScreenshot", detail: "(name?, options?) => Promise<void>",  info: "Ensures page matches a screenshot." },
-  { label: "toHaveTitle",      detail: "(title, options?) => Promise<void>",  info: "Ensures page has the given title." },
-  { label: "toHaveURL",        detail: "(url, options?) => Promise<void>",    info: "Ensures page has the given URL." },
-];
-
-const GENERIC_ASSERTIONS: AssertionEntry[] = [
-  { label: "toBe",               detail: "(expected) => void",          info: "Strict equality check (Object.is)." },
-  { label: "toBeCloseTo",        detail: "(number, digits?) => void",   info: "Checks floating-point number proximity." },
-  { label: "toBeDefined",        detail: "() => void",                  info: "Ensures value is not undefined." },
-  { label: "toBeFalsy",          detail: "() => void",                  info: "Ensures value is falsy." },
-  { label: "toBeGreaterThan",    detail: "(number) => void",            info: "Ensures value > number." },
-  { label: "toBeGreaterThanOrEqual", detail: "(number) => void",        info: "Ensures value >= number." },
-  { label: "toBeInstanceOf",     detail: "(Class) => void",             info: "Ensures value is instance of class." },
-  { label: "toBeLessThan",       detail: "(number) => void",            info: "Ensures value < number." },
-  { label: "toBeLessThanOrEqual",detail: "(number) => void",            info: "Ensures value <= number." },
-  { label: "toBeNull",           detail: "() => void",                  info: "Ensures value is null." },
-  { label: "toBeTruthy",         detail: "() => void",                  info: "Ensures value is truthy." },
-  { label: "toBeUndefined",      detail: "() => void",                  info: "Ensures value is undefined." },
-  { label: "toContain",          detail: "(item) => void",              info: "Checks array contains item, or string contains substring." },
-  { label: "toEqual",            detail: "(expected) => void",          info: "Deep equality check." },
-  { label: "toHaveLength",       detail: "(number) => void",            info: "Checks .length property." },
-  { label: "toHaveProperty",     detail: "(path, value?) => void",      info: "Checks object has property at path." },
-  { label: "toMatch",            detail: "(regexp|string) => void",     info: "Checks string matches regexp or substring." },
-  { label: "toMatchObject",      detail: "(object) => void",            info: "Checks object contains expected properties." },
-  { label: "toStrictEqual",      detail: "(expected) => void",          info: "Strict deep equality including object types." },
-  { label: "toThrow",            detail: "(error?) => void",            info: "Checks function throws an error." },
-];
-
-function toAssertionCompletions(entries: AssertionEntry[]): Completion[] {
-  return entries.map((item) => ({
+function toAssertionCompletions(interfaceName: string): Completion[] {
+  return (PW_COMPLETIONS[interfaceName] ?? []).map((item) => ({
     label: item.label,
     type: "method",
     detail: item.detail,
@@ -187,9 +116,9 @@ function toAssertionCompletions(entries: AssertionEntry[]): Completion[] {
 }
 
 // Cache assertion completion arrays
-const LOCATOR_ASSERTION_COMPLETIONS = toAssertionCompletions(LOCATOR_ASSERTIONS);
-const PAGE_ASSERTION_COMPLETIONS    = toAssertionCompletions(PAGE_ASSERTIONS);
-const GENERIC_ASSERTION_COMPLETIONS = toAssertionCompletions(GENERIC_ASSERTIONS);
+const LOCATOR_ASSERTION_COMPLETIONS = toAssertionCompletions("LocatorAssertions");
+const PAGE_ASSERTION_COMPLETIONS    = toAssertionCompletions("PageAssertions");
+const GENERIC_ASSERTION_COMPLETIONS = toAssertionCompletions("GenericAssertions");
 
 // ── Top-level snippets ────────────────────────────────────────────────────────
 //
@@ -215,9 +144,7 @@ function toCompletions(interfaceName: InterfaceName): Completion[] {
     return completionCache.get(interfaceName)!;
   }
 
-  const raw: RawCompletion[] = (PW_COMPLETIONS as Record<string, RawCompletion[]>)[interfaceName] ?? [];
-
-  const completions: Completion[] = raw.map((item) => ({
+  const completions: Completion[] = (PW_COMPLETIONS[interfaceName] ?? []).map((item) => ({
     label: item.label,
     type: item.type,
     detail: item.detail,
@@ -305,8 +232,8 @@ export function playwrightCompletions(
     let interfaceName: InterfaceName | null = null;
 
     // Chain return type: getByLabel() → Locator, keyboard → Keyboard
-    if (lastMethod && lastMethod in METHOD_RETURN_TYPE) {
-      interfaceName = METHOD_RETURN_TYPE[lastMethod];
+    if (lastMethod && METHOD_RETURN_TYPE.has(lastMethod)) {
+      interfaceName = METHOD_RETURN_TYPE.get(lastMethod)!;
     } else {
       // Direct variable lookup: "page." → Page
       const firstSegment = dotMatch.text.split(".")[0];

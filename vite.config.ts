@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { build } from 'esbuild';
 import { writeFileSync, mkdirSync } from 'fs';
+import { completionsPlugin } from './scripts/completions';
 
 const sourcemap = process.env.SOURCEMAP === 'true';
 
@@ -41,7 +42,7 @@ function contentScriptPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), contentScriptPlugin()],
+  plugins: [react(), tailwindcss(), contentScriptPlugin(), completionsPlugin()],
   root: "src",
   base: "",
   resolve: {
