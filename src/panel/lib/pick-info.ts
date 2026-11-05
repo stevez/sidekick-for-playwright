@@ -1,5 +1,4 @@
 import type { ElementPickInfo, PickResultData } from '@/types';
-import type { SerializedValue } from '@/components/Console/types';
 
 // ─── Aria snapshot parsing ──────────────────────────────────────────────
 
@@ -181,25 +180,3 @@ export function buildPickResult(info: ElementPickInfo, cdpLocator?: string | nul
         },
     };
 }
-
-/**
- * Convert a PickResultData into a SerializedValue for rendering via ObjectTree.
- */
-export function pickResultToSerialized(data: PickResultData): SerializedValue {
-    const props: Record<string, SerializedValue> = {};
-
-    // ref
-    if (data.ref) props.ref = { __type: 'string', v: data.ref };
-
-    props.locator = { __type: 'string', v: data.jsExpression };
-    if (data.assertJs) props.assert = { __type: 'string', v: data.assertJs };
-
-    // aria: placeholder so key appears in collapsed summary; actual rendering via extraChildren
-    if (data.ariaSnapshot) {
-        props.aria = { __type: 'string', v: '' };
-    }
-
-    return { __type: 'object', cls: 'PickResult', props };
-}
-
-

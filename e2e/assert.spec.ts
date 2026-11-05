@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, editorText, pick } from './fixtures';
+import { test, expect, pick, captureClipboard } from './fixtures';
 
 async function verify(panel: Page) {
   await panel.getByTestId('assert-verify').click();
@@ -55,11 +55,13 @@ test.describe('Assert tab', () => {
     await expect(await verify(panel)).toHaveAttribute('data-status', 'passed');
   });
 
-  test('inserts the assertion into the editor', async ({ panel }) => {
+  test('copies the assertion', async ({ panel }) => {
+    const copied = await captureClipboard(panel);
     await panel.getByTestId('assert-type').selectOption('toBeVisible');
     const line = await panel.getByTestId('assert-assertion').inputValue();
-    await panel.getByTestId('assert-insert').click();
-    expect(await editorText(panel)).toContain(line);
+    await panel.getByTestId('assert-copy').click();
+    await expect(panel.getByTestId('assert-copy')).toHaveText('Copied');
+    expect(await copied()).toBe(line);
   });
 
   test('offers form matchers for inputs', async ({ panel, target }) => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ObjectTree } from './ObjectTree';
 import { SnapshotTree } from './SnapshotTree';
-import { pickResultToSerialized } from '@/lib/pick-info';
+import { PickResult } from './PickResult';
 import { parseSnapshot } from '@/lib/snapshot-parser';
 import Lightbox from '../Lightbox';
 import { saveToFile } from '@/lib/file-utils';
@@ -41,22 +41,7 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                 {entry.status === 'done' && (
                     <div className="pt-0.5">
                         {entry.pickResult !== undefined ? (
-                            <div data-type="pick-result">
-                                <ObjectTree
-                                    data={pickResultToSerialized(entry.pickResult)}
-                                    noQuote
-                                    extraChildren={entry.pickResult.ariaSnapshot ? (
-                                        <div className="ot-row">
-                                            <div>
-                                                <span className="ot-key">aria</span><span className="ot-colon">: </span>
-                                            </div>
-                                            <div className="w-full mt-0.5 border border-solid border-(--border-primary) rounded-sm bg-(--bg-line-highlight)">
-                                                <pre className="m-0 py-2 px-3 text-(--color-command) font-[inherit] text-[12px] leading-4 whitespace-pre-wrap wrap-break-word">{entry.pickResult.ariaSnapshot}</pre>
-                                            </div>
-                                        </div>
-                                    ) : undefined}
-                                />
-                            </div>
+                            <PickResult pick={entry.pickResult} />
                         ) : entry.value !== undefined ? (
                             <div data-type="success"><ObjectTree data={entry.value} getProperties={entry.getProperties} /></div>
                         ) : entry.codeBlock !== undefined ? (

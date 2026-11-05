@@ -114,3 +114,13 @@ export async function pick(panel: Page, target: Page, pickButton: string, click:
   await target.locator('x-pw-glass').waitFor({ state: 'attached' }); // Playwright's pick overlay is up
   await click();
 }
+
+/** Capture clipboard writes in the panel; returns a getter for the last copied text */
+export async function captureClipboard(panel: Page): Promise<() => Promise<string>> {
+  await panel.evaluate(() => {
+    const w = window as unknown as { __copied: string };
+    w.__copied = '';
+    navigator.clipboard.writeText = async (text: string) => { w.__copied = text; };
+  });
+  return () => panel.evaluate(() => (window as unknown as { __copied: string }).__copied);
+}
