@@ -76,7 +76,7 @@ function ScopeSection({ scope, defaultOpen, onLocalProps }: ScopeSectionProps) {
 
 export function VariablePane({ scopeData, onLocalProps }: VariablePaneProps) {
     return (
-        <div className="overflow-auto flex-1 p-2">
+        <div className="overflow-auto flex-1 p-2 font-(family-name:--font-code)">
             { scopeData.length === 0 
               ? <div className='ot-empty'>No local variables</div>
               : scopeData.map((scope) => (
