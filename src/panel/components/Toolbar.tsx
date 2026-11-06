@@ -20,7 +20,11 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isRecording, setIsRecording] = useState(false);
     const [isPicking, setIsPicking] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === 'dark');
+    // A saved choice wins; otherwise follow the system theme
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem('theme');
+        return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    });
     const [availableTabs, setAvailableTabs] = useState<chrome.tabs.Tab[]>([]);
     const [canAttach, setCanAttach] = useState(true);
     const [selectedTabId, setSelectedTabId] = useState<number | null>(null);
@@ -341,11 +345,17 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
 
     useEffect(() => {
         document.documentElement.classList.toggle('theme-dark', isDarkMode);
-        localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
     }, [isDarkMode]);
 
+    // Saved only on an explicit toggle, so an unset theme keeps following the system
+    function toggleTheme() {
+        const next = !isDarkMode;
+        localStorage.setItem('theme', next ? 'dark' : 'light');
+        setIsDarkMode(next);
+    }
+
     return (
-        <div id="toolbar" className="flex flex-wrap gap-1 justify-between items-center py-1 px-2 bg-(--bg-toolbar) border-b border-solid border-(--border-primary) shrink-0">
+        <div id="toolbar" className="flex flex-wrap gap-1 justify-between items-center py-1.5 px-2 bg-(--bg-toolbar) border-b border-solid border-(--border-primary) shrink-0">
             <div id="toolbar-left" className="flex flex-wrap gap-1 items-center">
                 <input
                     type="file"
@@ -389,12 +399,12 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                     onClick={handleVideoRecord}
                 >
                     <ScreencastIcon />
-                    {isVideoRecording && <span className="ml-1 text-[10px] font-mono">{formatElapsed(videoElapsed)}</span>}
+                    {isVideoRecording && <span className="ml-1 text-[12px] font-(family-name:--font-code)">{formatElapsed(videoElapsed)}</span>}
                 </button>
                 <button id="open-btn" title="Open script" onClick={handleFileOpen}><FolderOpenIcon /></button>
                 <button id="save-btn" title="Save script" disabled={!editorContent.trim()} onClick={handleSave}><SaveIcon /></button>
                 <button data-testid="export-spec-btn" title="Export as Playwright test (.spec.ts / .spec.js)" disabled={!editorContent.trim()} onClick={handleExportSpec}><ExportIcon /></button>
-                <button onClick={() => setIsDarkMode(prev => !prev)} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+                <button onClick={toggleTheme} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
                     {isDarkMode ? <SunIcon /> : <MoonIcon />}
                 </button>
             </div>

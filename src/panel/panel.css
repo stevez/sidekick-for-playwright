@@ -10,14 +10,14 @@
 
   /* Light theme (default — matches Chrome DevTools) */
   --bg-body: #ffffff;
-  --bg-toolbar: #f3f3f3;
+  --bg-toolbar: #f7f7f9;
   --bg-editor: #ffffff;
-  --bg-line-highlight: #e8e8e8;
+  --bg-line-highlight: #f4f2fb;
   --bg-run-line: #d4ecfb;
-  --bg-button: #e0e0e0;
-  --bg-button-hover: #d0d0d0;
-  --bg-splitter: #f3f3f3;
-  --bg-splitter-hover: #e8e8e8;
+  --bg-button: #ececef;
+  --bg-button-hover: #e0e0e4;
+  --bg-splitter: #f7f7f9;
+  --bg-splitter-hover: #ececef;
   --bg-scrollbar-track: #ffffff;
   --bg-scrollbar-thumb: #c1c1c1;
   --bg-scrollbar-thumb-hover: #a8a8a8;
@@ -27,12 +27,18 @@
   --text-dim: #6e6e6e;
   --text-placeholder: #767676;
 
-  --border-primary: #d4d4d4;
-  --border-button: #c8c8c8;
-  --border-screenshot: #d4d4d4;
+  --border-primary: #e4e4e7;
+  --border-button: #d4d4d8;
+  --border-screenshot: #e4e4e7;
 
-  --color-run-bg: #2ea043;
-  --color-run-bg-hover: #3fb950;
+  /* Accent (the icon's violet): active tabs, focus, selection, picking */
+  --color-accent: #7c3aed;
+  --color-accent-strong: #6d28d9;
+  --bg-accent-subtle: #f5f3ff;
+  --bg-selection: #ddd6fe;
+
+  --color-run-bg: #1a7f37;
+  --color-run-bg-hover: #1f883d;
   --color-recording-bg: #fde8e8;
   --color-recording-text: #d32f2f;
   --color-recording-border: #d32f2f;
@@ -51,39 +57,44 @@
   --color-line-pass: #2e7d32;
   --color-line-fail: #d32f2f;
   --color-prompt: #2e7d32;
-  --color-splitter-handle: #a0a0a0;
-  --color-splitter-handle-hover: #007acc;
-  --color-toolbar-sep: #d4d4d4;
+  --color-splitter-handle: #a1a1aa;
+  --color-splitter-handle-hover: var(--color-accent);
+  --color-toolbar-sep: #e4e4e7;
   --color-caret: #1e1e1e;
   --color-breakpoint: #e51400;
   --color-inline-value: #6e6e6e;
 }
 
 .theme-dark {
-  --bg-body: #1e1e1e;
-  --bg-toolbar: #252526;
-  --bg-editor: #1e1e1e;
-  --bg-line-highlight: #2a2d2e;
+  --bg-body: #18181b;
+  --bg-toolbar: #202024;
+  --bg-editor: #18181b;
+  --bg-line-highlight: #24212e;
   --bg-run-line: #1a3a50;
-  --bg-button: #333333;
-  --bg-button-hover: #3c3c3c;
-  --bg-splitter: #252526;
-  --bg-splitter-hover: #2a2d2e;
-  --bg-scrollbar-track: #1e1e1e;
-  --bg-scrollbar-thumb: #444444;
-  --bg-scrollbar-thumb-hover: #555555;
+  --bg-button: #2e2e33;
+  --bg-button-hover: #3a3a40;
+  --bg-splitter: #202024;
+  --bg-splitter-hover: #2a2a2f;
+  --bg-scrollbar-track: #18181b;
+  --bg-scrollbar-thumb: #3f3f46;
+  --bg-scrollbar-thumb-hover: #52525b;
 
   --text-default: #d4d4d4;
   --text-line-numbers: #8b949e;
   --text-dim: #888888;
   --text-placeholder: #8a8a8a;
 
-  --border-primary: #333333;
-  --border-button: #444444;
-  --border-screenshot: #444444;
+  --border-primary: #2e2e33;
+  --border-button: #3f3f46;
+  --border-screenshot: #3f3f46;
 
-  --color-run-bg: #2ea043;
-  --color-run-bg-hover: #3fb950;
+  --color-accent: #a78bfa;
+  --color-accent-strong: #c4b5fd;
+  --bg-accent-subtle: #2e1065;
+  --bg-selection: #4c1d95;
+
+  --color-run-bg: #1a7f37;
+  --color-run-bg-hover: #1f883d;
   --color-recording-bg: #5c2020;
   --color-recording-text: #f44747;
   --color-recording-border: #f44747;
@@ -101,9 +112,9 @@
   --color-line-pass: #6a9955;
   --color-line-fail: #f44747;
   --color-prompt: #6a9955;
-  --color-splitter-handle: #555555;
-  --color-splitter-handle-hover: #007acc;
-  --color-toolbar-sep: #444444;
+  --color-splitter-handle: #52525b;
+  --color-splitter-handle-hover: var(--color-accent);
+  --color-toolbar-sep: #3f3f46;
   --color-caret: #d4d4d4;
   --color-breakpoint: #e51400;
   --color-inline-value: #888888;
@@ -115,10 +126,22 @@ html, body {
   height: 100%;
   background: var(--bg-body);
   color: var(--text-default);
-  font-family: "Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace;
+  font-family: var(--font-ui);
   font-size: 13px;
   display: flex;
   flex-direction: column;
+}
+
+::selection {
+  background: var(--bg-selection);
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 #root {
@@ -170,8 +193,9 @@ html, body {
 }
 
 #toolbar [data-testid="mode-toggle"] button[data-active] {
-  background: var(--color-run-bg);
-  color: white;
+  background: var(--bg-accent-subtle);
+  color: var(--color-accent-strong);
+  border-color: var(--color-accent);
   font-weight: 600;
 }
 
@@ -218,15 +242,9 @@ html, body {
 }
 
 [data-testid="pick-btn"].picking {
-  background: #e3f2fd !important;
-  color: #1565c0 !important;
-  border-color: #1565c0 !important;
-}
-
-.theme-dark [data-testid="pick-btn"].picking {
-  background: #1a3a5c !important;
-  color: #64b5f6 !important;
-  border-color: #64b5f6 !important;
+  background: var(--bg-accent-subtle) !important;
+  color: var(--color-accent-strong) !important;
+  border-color: var(--color-accent) !important;
 }
 
 /* === Splitter === */
@@ -329,7 +347,7 @@ html, body {
   border: none;
   color: var(--text-dim);
   font-family: inherit;
-  font-size: 10px;
+  font-size: 12px;
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 3px;
@@ -342,7 +360,7 @@ html, body {
 
 [data-testid="bottom-pane"] > div:first-child button[data-active] {
   opacity: 1;
-  border-bottom: 2px solid var(--color-run-bg);
+  border-bottom: 2px solid var(--color-accent);
 }
 
 [data-testid="bottom-pane"] > div:first-child button:not([data-active]) {

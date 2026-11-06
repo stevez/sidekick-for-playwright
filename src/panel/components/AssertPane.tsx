@@ -19,10 +19,10 @@ const EMPTY_FIELDS: Fields = { locator: '', mode: 'locator', type: 'toBeVisible'
 const buttonClass = 'bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-1 px-3 font-sans text-[12px] cursor-pointer hover:bg-(--bg-button-hover) disabled:opacity-50 disabled:cursor-default';
 // Verify result box; the status adds its color (tinted from --color-success / --color-error)
 const resultClass = 'py-1.5 px-2 rounded-[4px] border border-solid font-sans text-[12px] break-words';
-const inputClass = 'bg-(--bg-editor) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-1 px-2 font-[inherit] text-[12px] focus:outline-none focus:border-(--color-splitter-handle-hover)';
-// UI text (labels, titles) uses the sans font, so it stands apart from the monospace code
-const labelClass = 'font-sans text-[11px] text-(--text-dim)';
-const optionClass = 'flex items-center gap-1 font-sans cursor-pointer accent-(--color-run-bg)';
+const inputClass = 'bg-(--bg-editor) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-1 px-2 font-(family-name:--font-code) text-[12px] focus:outline-none focus:border-(--color-splitter-handle-hover)';
+// Labels and titles use the UI font; locator and assertion inputs use the code font
+const labelClass = 'font-sans text-[12px] text-(--text-dim)';
+const optionClass = 'flex items-center gap-1 font-sans cursor-pointer accent-(--color-accent)';
 const sectionClass = 'flex flex-col gap-1.5 p-2 rounded-[4px] border border-solid border-(--border-primary) bg-(--bg-toolbar)';
 
 /** Numbered step heading: green badge plus a bold sans-serif title */
@@ -238,7 +238,7 @@ export function AssertPane({ incoming }: AssertPaneProps) {
                         {verify.full && verify.full !== verify.message && (
                             <details className="mt-1 text-(--text-default)">
                                 <summary className="cursor-pointer text-(--text-dim)">Full error</summary>
-                                <pre className="mt-1 m-0 whitespace-pre-wrap break-words font-[inherit] text-[11px]">{verify.full}</pre>
+                                <pre className="mt-1 m-0 whitespace-pre-wrap break-words font-(family-name:--font-code) text-[12px]">{verify.full}</pre>
                             </details>
                         )}
                     </div>
