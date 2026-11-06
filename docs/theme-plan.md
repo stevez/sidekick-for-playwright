@@ -15,12 +15,12 @@ Done in the first theme PR:
 - **Contrast fixes:** line numbers and placeholder text.
 - **Tab dropdown:** the toolbar's tab select is styled like the other inputs.
 
-Still open:
-- Body font. The panel body is still monospace, so text outside the toolbar, tabs and Assert tab is too.
-- Accent color for active tabs, focus rings and selection (item 2).
-- Darker Run green (item 3).
-- Surfaces (item 4).
-- Following the system theme (item 5).
+Done in the second theme PR:
+- **Body font:** the panel uses the UI font; the editor, console, Variables pane and Assert inputs stay monospace. 10px and 11px text is now 12px.
+- **Accent:** violet for active tabs, focus rings, selection, the picking state and splitter hover (item 2).
+- **Run green:** `#1a7f37` (item 3).
+- **Surfaces:** zinc grays and a little more toolbar padding (item 4).
+- **System theme:** followed until you click the toggle (item 5).
 
 ## What makes it plain and hard to read today
 

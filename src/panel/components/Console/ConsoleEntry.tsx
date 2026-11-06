@@ -31,7 +31,7 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                     <div key={i} className="text-(--color-command)">
                         {line}
                         {i === arr.length - 1 && entry.time !== undefined && localStorage.getItem('logTime') === 'true' && (
-                            <span className="text-(--text-dim) text-[10px]"> : {entry.time}ms</span>
+                            <span className="text-(--text-dim) text-[12px]"> : {entry.time}ms</span>
                         )}
                     </div>
                 ))}
@@ -50,7 +50,7 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                             <div data-type="trace" className="flex items-center gap-2 py-1">
                                 <span className="text-(--color-success)">Trace saved{entry.traceSize ? ` (${formatSize(entry.traceSize)})` : ''}</span>
                                 <button
-                                    className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[11px] cursor-pointer hover:bg-(--bg-button-hover)"
+                                    className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[12px] cursor-pointer hover:bg-(--bg-button-hover)"
                                     onClick={() => chrome.runtime.sendMessage({ type: 'tracing-view' })}
                                 >View Trace</button>
                             </div>
@@ -58,11 +58,11 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                             <div data-type="video" data-blob-url={entry.video} className="flex items-center gap-2 py-1">
                                 <span className="text-(--color-success)">Video recorded{entry.videoDuration !== undefined ? ` (${formatDuration(entry.videoDuration)}, ${formatSize(entry.videoSize ?? 0)})` : ''}</span>
                                 <button
-                                    className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[11px] cursor-pointer hover:bg-(--bg-button-hover)"
+                                    className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[12px] cursor-pointer hover:bg-(--bg-button-hover)"
                                     onClick={() => chrome.runtime.sendMessage({ type: 'video-preview', blobUrl: entry.video })}
                                 >Preview</button>
                                 <button
-                                    className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[11px] cursor-pointer hover:bg-(--bg-button-hover)"
+                                    className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[12px] cursor-pointer hover:bg-(--bg-button-hover)"
                                     onClick={() => saveVideo(entry.video!)}
                                 >Save Video</button>
                             </div>
@@ -71,7 +71,7 @@ export function ConsoleEntry({ entry }: { entry: Entry }) {
                                 <div data-type="pdf" className="flex items-center gap-2 py-1">
                                     <span className="text-(--color-success)">PDF generated</span>
                                     <button
-                                        className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[11px] cursor-pointer hover:bg-(--bg-button-hover)"
+                                        className="bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[12px] cursor-pointer hover:bg-(--bg-button-hover)"
                                         onClick={() => saveToFile(entry.image!)}
                                     >Save PDF</button>
                                 </div>
@@ -111,7 +111,7 @@ function SnapshotCodeBlock({ codeBlock }: { codeBlock: string }) {
                 : <pre className="m-0 py-2 px-3 text-(--color-command) font-[inherit] text-[12px] leading-4 whitespace-pre-wrap wrap-break-word">{codeBlock}</pre>
             }
             <button
-                className="absolute top-1 right-1 bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[10px] cursor-pointer hover:bg-(--bg-button-hover)"
+                className="absolute top-1 right-1 bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[3px] py-[2px] px-2 font-[inherit] text-[12px] cursor-pointer hover:bg-(--bg-button-hover)"
                 onClick={() => navigator.clipboard.writeText(codeBlock)}
             >Copy</button>
         </div>
