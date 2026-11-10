@@ -3,8 +3,9 @@ import type { PanelState, Action } from "@/reducer";
 import { attachToTab } from '@/lib/bridge';
 import { runJsScript, runJsScriptStep } from '@/lib/run';
 import { swTerminateExecution, swDebugResume } from '@/lib/sw-debugger';
-import { SunIcon, MoonIcon, FolderOpenIcon, SaveIcon, ExportIcon, RecordIcon, StopIcon, BugIcon, CrosshairIcon, PlugIcon, UnplugIcon, ScreencastIcon } from './Icons';
+import { SunIcon, MoonIcon, FolderOpenIcon, SaveIcon, ExportIcon, RecordIcon, StopIcon, BugIcon, CrosshairIcon, PlugIcon, UnplugIcon, ScreencastIcon, PopOutIcon, DockIcon, InfoIcon } from './Icons';
 import ExportSpecDialog from './ExportSpecDialog';
+import AboutDialog from './AboutDialog';
 import { defaultTestName } from '@/lib/export-spec';
 import type { EditorHandle } from './CodeMirrorEditorPane';
 import { buildPickResult } from '@/lib/pick-info';
@@ -14,9 +15,12 @@ import { startVideo, stopVideo, isVideoRecording as isVideoRecordingNow } from '
 interface ToolbarProps extends Pick<PanelState, 'editorContent' | 'stepLine' | 'attachedUrl' | 'attachedTabId' | 'isAttaching' | 'isRunning' | 'isStepDebugging' | 'breakPoints'> {
     dispatch: React.Dispatch<Action>,
     editorRef: React.RefObject<EditorHandle | null>,
+    isPopup: boolean,
+    onModeSwitch: () => void,
 };
 
-function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttaching, isRunning, isStepDebugging, breakPoints, dispatch, editorRef }: ToolbarProps) {
+function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttaching, isRunning, isStepDebugging, breakPoints, dispatch, editorRef, isPopup, onModeSwitch }: ToolbarProps) {
+    const [showAbout, setShowAbout] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isRecording, setIsRecording] = useState(false);
     const [isPicking, setIsPicking] = useState(false);
@@ -407,6 +411,15 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                 <button onClick={toggleTheme} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
                     {isDarkMode ? <SunIcon /> : <MoonIcon />}
                 </button>
+                <button
+                    data-testid="mode-switch-btn"
+                    onClick={onModeSwitch}
+                    disabled={isRunning || isRecording || isVideoRecording}
+                    title={isPopup ? 'Dock to side panel' : 'Open in a separate window'}
+                >
+                    {isPopup ? <DockIcon /> : <PopOutIcon />}
+                </button>
+                <button data-testid="about-btn" title="About Sidekick" onClick={() => setShowAbout(true)}><InfoIcon /></button>
             </div>
             <div id="toolbar-right" className="flex items-center gap-2">
                 <select
@@ -433,6 +446,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                     {attachedUrl ? <UnplugIcon /> : <PlugIcon />}
                 </button>
             </div>
+            {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
             {exportDefaultName !== null && (
                 <ExportSpecDialog
                     script={editorContent}
