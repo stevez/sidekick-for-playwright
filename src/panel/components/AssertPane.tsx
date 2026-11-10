@@ -142,7 +142,7 @@ export function AssertPane({ incoming }: AssertPaneProps) {
                 <StepTitle step={1} title="Pick element">
                     <button
                         data-testid="assert-pick-btn"
-                        className={`${buttonClass} ml-auto flex items-center gap-1 py-0.5 px-2 ${isPicking ? 'picking bg-(--bg-run-line) text-(--color-snapshot) border-(--color-snapshot)' : ''}`}
+                        className={`${buttonClass} ml-2 flex items-center gap-1 py-0.5 px-2 ${isPicking ? 'picking bg-(--bg-run-line) text-(--color-snapshot) border-(--color-snapshot)' : ''}`}
                         title={isPicking ? 'Stop picking' : 'Pick element'}
                         onClick={handlePick}
                     ><CrosshairIcon />{isPicking ? 'Picking…' : 'Pick'}</button>
@@ -188,7 +188,8 @@ export function AssertPane({ incoming }: AssertPaneProps) {
                         <input type="radio" name="assert-mode" data-testid="assert-mode-snapshot" checked={fields.mode === 'snapshot'} onChange={() => update({ mode: 'snapshot' })} />
                         Snapshot
                     </label>
-                    <label className={`${optionClass} ml-auto`}>
+                    <span className="w-px h-4 bg-(--border-button)" aria-hidden="true"></span>
+                    <label className={optionClass}>
                         <input type="checkbox" data-testid="assert-negate" checked={fields.negate} onChange={e => update({ negate: e.target.checked })} />
                         Not
                     </label>

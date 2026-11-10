@@ -16,6 +16,8 @@ function highlightJs(code: string): ReactNode[] {
     return out;
 }
 
+const actionClass = 'bg-(--bg-button) text-(--text-default) border border-solid border-(--border-button) rounded-[4px] py-0.5 px-2.5 font-(family-name:--font-ui) text-[12px] cursor-pointer hover:bg-(--bg-button-hover) hover:border-(--color-accent)';
+
 /** "button "Greet"" from the first line of the ARIA snapshot, else the tag and text */
 function describe(pick: PickResultData): { role: string; name?: string } {
     const m = pick.ariaSnapshot?.match(/^-\s+([\w-]+)(?:\s+"((?:[^"\\]|\\.)*)")?/);
@@ -56,8 +58,10 @@ export function PickResult({ pick }: { pick: PickResultData }) {
                     onMouseEnter={highlight}
                     onMouseLeave={hideHighlight}
                 >{highlightJs(pick.locator)}</span>
-                <button data-testid="pick-copy" className="console-clear-btn" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
-                <button data-testid="pick-open-assert" className="console-clear-btn" onClick={() => openInAssert(pick)}>Open in Assert</button>
+            </div>
+            <div className="flex gap-2 mt-1 mb-0.5">
+                <button data-testid="pick-copy" className={actionClass} onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+                <button data-testid="pick-open-assert" className={actionClass} onClick={() => openInAssert(pick)}>Open in Assert</button>
             </div>
         </div>
     );

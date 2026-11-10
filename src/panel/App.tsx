@@ -18,6 +18,8 @@ function App() {
   const editorRef = useRef<EditorHandle | null>(null);
   const attachedTabRef = useRef<number | null>(null);
   const [localProps, setLocalProps] = useState<Record<string, SerializedValue> | null>(null);
+  // Opened as a separate window (popup) for one tab, instead of the side panel
+  const popupTabId = useMemo(() => Number(new URLSearchParams(window.location.search).get('tabId')) || null, []);
 
   const inlineValues = useMemo(
     () => formatInlineValues(state.currentRunLine, localProps),
@@ -54,20 +56,53 @@ function App() {
     })();
   }, []);
 
+  function saveSession() {
+    return saveSessionState({
+      editorContent: state.editorContent,
+      breakPoints: [...state.breakPoints],
+      bottomTab: state.bottomTab,
+      cursorPos: editorRef.current?.getCursorPos() ?? 0,
+      editorPaneHeight: editorPaneRef.current?.offsetHeight ?? null,
+      commandHistory: getCommandHistory(),
+    });
+  }
+
   // Save session state on every meaningful change (debounced)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      saveSessionState({
-        editorContent: state.editorContent,
-        breakPoints: [...state.breakPoints],
-        bottomTab: state.bottomTab,
-        cursorPos: editorRef.current?.getCursorPos() ?? 0,
-        editorPaneHeight: editorPaneRef.current?.offsetHeight ?? null,
-        commandHistory: getCommandHistory(),
-      });
-    }, 500);
+    const timer = setTimeout(saveSession, 500);
     return () => clearTimeout(timer);
   }, [state.editorContent, state.breakPoints, state.bottomTab]);
+
+  // ─── Side panel ↔ separate window ───
+  // The other view restores the editor, breakpoints and history from the session state.
+
+  async function handleModeSwitch() {
+    await saveSession();
+    const tabId = state.attachedTabId;
+    if (popupTabId) {
+      // Dock: open the side panel in the attached tab's window (the click is the user gesture)
+      const tab = tabId ? await chrome.tabs.get(tabId).catch(() => null) : null;
+      let windowId = tab?.windowId;
+      if (!windowId) {
+        const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+        windowId = (windows.find(w => w.focused) ?? windows[0])?.id;
+      }
+      if (!windowId) return;
+      await chrome.sidePanel.open({ windowId });
+    } else {
+      if (!tabId) {
+        dispatch({ type: 'ADD_LINE', line: { text: 'Attach to a tab before opening a separate window.', type: 'error' } });
+        return;
+      }
+      await chrome.windows.create({
+        url: chrome.runtime.getURL(`panel/panel.html?tabId=${tabId}`),
+        type: 'popup',
+        width: 480,
+        height: 760,
+      });
+    }
+    window.close();
+  }
 
   async function doAttach(tabId: number) {
     dispatch({ type: 'ATTACH_START' });
@@ -83,6 +118,12 @@ function App() {
 
   useEffect(() => {
     if (!chrome.tabs?.query) return;
+
+    // A separate window works on the tab it was opened for; switch tabs with the tab menu
+    if (popupTabId) {
+      doAttach(popupTabId);
+      return;
+    }
 
     // Attach to the current active tab, then follow tab switches
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -145,6 +186,8 @@ function App() {
         dispatch={dispatch}
         editorRef={editorRef}
         breakPoints={state.breakPoints}
+        isPopup={popupTabId !== null}
+        onModeSwitch={handleModeSwitch}
       />
       {state.isStepDebugging && <DebugBar dispatch={dispatch} />}
 
