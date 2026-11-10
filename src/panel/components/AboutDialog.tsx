@@ -26,7 +26,6 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
                     </div>
                 </div>
                 <p className="m-0">Record, pick locators, and run or debug Playwright JavaScript in a side panel.</p>
-                <p className="m-0 text-(--text-dim) text-[12px]">Open source under the MIT license. Not affiliated with Microsoft or the Playwright team.</p>
                 <div className="flex justify-end">
                     <button type="button" autoFocus className={buttonClass} onClick={onClose}>Close</button>
                 </div>
