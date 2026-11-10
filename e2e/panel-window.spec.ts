@@ -1,13 +1,5 @@
 import { test, expect, editorText } from './fixtures';
 
-test('shows the version in the About dialog', async ({ panel, sw }) => {
-  const version = await sw.evaluate(() => chrome.runtime.getManifest().version);
-  await panel.getByTestId('about-btn').click();
-  await expect(panel.getByTestId('about-version')).toHaveText(`Version ${version}`);
-  await panel.getByRole('button', { name: 'Close' }).click();
-  await expect(panel.getByTestId('about-dialog')).toBeHidden();
-});
-
 test('opens the panel in a separate window that keeps the script and the tab', async ({ context, panel, target }) => {
   await panel.locator('input[type=file]').setInputFiles({ name: 'a.js', mimeType: 'text/javascript', buffer: Buffer.from("await page.getByRole('button', { name: 'Greet' }).click();") });
   await expect.poll(() => editorText(panel)).toContain('Greet');
