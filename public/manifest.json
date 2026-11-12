@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sidekick for Playwright – Test Recorder, Debugger & Video",
   "short_name": "Sidekick for Playwright",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Record once — get the Playwright test and the video. Record, pick locators, and run or debug Playwright JavaScript in a side panel.",
   "minimum_chrome_version": "116",
   "permissions": [

@@ -17,7 +17,7 @@ Text to paste into the Developer Dashboard. The title and summary come from `pub
 ```
 Record once — get the Playwright test and the video.
 
-Sidekick for Playwright records what you do in a tab as Playwright JavaScript, helps you pick locators and build assertions, runs and debugs the script, and captures a video of the session. Everything runs in a side panel: no Node.js, no project setup, no server.
+Sidekick for Playwright records what you do in a tab as Playwright JavaScript, helps you pick locators and build assertions, runs and debugs the script, and captures a video of the session. Everything runs in a side panel, or in its own window: no Node.js, no project setup, no server.
 
 RECORD
 • Clicks, typing, selects, checks and navigations become Playwright code as you go
@@ -46,7 +46,11 @@ VIDEO AND TRACE
 EXPORT
 • Export the script as a Playwright Test file (.spec.ts or .spec.js), ready to drop into your project and run with npx playwright test
 • Open and save plain .js scripts
-• Light and dark themes
+
+WORKSPACE
+• Pop Sidekick out into its own window for more room, and dock it back to the side panel
+• Your script, breakpoints and history are kept when you close and reopen the panel
+• Light and dark themes that follow your system
 
 Built for Playwright engineers and QA who want to go from "I clicked through it" to a working test fast.
 
