@@ -27,7 +27,7 @@ function helpText(): string {
         '',
         '  For DOM access use: await page.evaluate(() => document.title)',
     ].join('\n');
-    const local = '  Console commands: clear, history, history clear, log time on|off, video-start, video-stop, tracing-start, tracing-stop';
+    const local = '  Console commands: clear, history, history clear, log time on|off\n  Video: use the 🎬 button in the toolbar';
     return `Playwright JavaScript — prefix async methods with await\n\n${globals}\n\n${jsLines}\n\n${local}`;
 }
 
