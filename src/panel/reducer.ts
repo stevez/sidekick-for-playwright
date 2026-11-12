@@ -126,7 +126,7 @@ export function panelReducer(state: PanelState, action: Action): PanelState {
         case 'ATTACH_FAIL':
             return { ...state, isAttaching: false, attachedUrl: null, attachedTabId: null }
         case 'DETACH':
-            return { ...state, attachedUrl: null, attachedTabId: null }
+            return { ...state, isAttaching: false, attachedUrl: null, attachedTabId: null }
         case 'UPDATE_URL':
             return { ...state, attachedUrl: action.url }
         case 'SET_BREAKPOINTS': 

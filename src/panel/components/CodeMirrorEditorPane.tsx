@@ -97,7 +97,9 @@ function CodeMirrorEditorPane({ editorContent, currentRunLine, lineResults, disp
         view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: editorContent } });
         view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true });
         externalUpdateRef.current = false;
-        view.focus();
+        // Don't take focus from another field, e.g. the console input
+        const active = document.activeElement;
+        if (!active || active === document.body || view.dom.contains(active)) view.focus();
     }, [editorContent]);
 
     useEffect(()=> {

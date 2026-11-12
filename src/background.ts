@@ -308,6 +308,64 @@ async function stopVideoCapture(): Promise<{ ok: boolean; error?: string; durati
 
 let lastTraceData: Uint8Array | null = null;
 
+const TRACE_VIEWER_ORIGIN = 'https://trace.playwright.dev';
+
+/** Base64 in 32 KB chunks: a per-byte string build blocks the service worker on multi-MB traces */
+function toBase64(bytes: Uint8Array): string {
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 0x8000)));
+  return btoa(chunks.join(''));
+}
+
+async function stopTracing(): Promise<{ ok: boolean; text?: string; size?: number; error?: string }> {
+  try {
+    const app = await ensureCrxApp();
+    const tracePath = `/tmp/trace-${Date.now()}.zip`;
+    await app.context().tracing.stop({ path: tracePath });
+    const data = crx.fs.readFileSync(tracePath);
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as unknown as ArrayBufferLike);
+    lastTraceData = bytes;
+    const dataUrl = `data:application/zip;base64,${toBase64(bytes)}`;
+    const d = new Date();
+    const timestamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}-${String(d.getSeconds()).padStart(2, '0')}`;
+    const filename = `pw-traces/trace-${timestamp}.zip`;
+    chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
+    crx.fs.unlinkSync(tracePath);
+    const size = bytes.length;
+    const sizeStr = size < 1024 * 1024 ? `${(size / 1024).toFixed(0)} KB` : `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    return { ok: true, text: `Trace saved to Downloads/${filename} (${sizeStr})`, size };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// Opens the trace in a popup window, then injects the loader once it's done navigating.
+// The trace is only handed over while the tab is still on the Trace Viewer.
+async function viewTrace(traceBytes: Uint8Array): Promise<void> {
+  const win = await chrome.windows.create({ url: `${TRACE_VIEWER_ORIGIN}/`, type: 'popup', width: 1400, height: 900 });
+  const tabId = win.tabs?.[0]?.id;
+  if (!tabId) return;
+  const removeListeners = () => {
+    chrome.tabs.onUpdated.removeListener(onUpdated);
+    chrome.tabs.onRemoved.removeListener(onRemoved);
+  };
+  const onRemoved = (tid: number) => { if (tid === tabId) removeListeners(); };
+  const onUpdated = (tid: number, info: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+    if (tid !== tabId || info.status !== 'complete') return;
+    removeListeners();
+    if (!tab.url || new URL(tab.url).origin !== TRACE_VIEWER_ORIGIN) return;
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content/trace-loader.js'],
+    }).then(() => {
+      chrome.tabs.sendMessage(tabId, { type: 'load-trace', data: Array.from(traceBytes) });
+    }).catch(e => console.debug('[sidekick] trace loader:', e));
+  };
+  chrome.tabs.onUpdated.addListener(onUpdated);
+  chrome.tabs.onRemoved.addListener(onRemoved);
+}
+
 // ─── Pick Element ────────────────────────────────────────────────────────────
 
 async function pickElement(): Promise<{ ok: boolean; info?: Record<string, unknown>; error?: string }> {
@@ -401,28 +459,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e: Error) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
-  if (msg.type === 'tracing-stop') {
-    (async () => {
-      const app = await ensureCrxApp();
-      const tracePath = `/tmp/trace-${Date.now()}.zip`;
-      await app.context().tracing.stop({ path: tracePath });
-      const data = crx.fs.readFileSync(tracePath);
-      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as unknown as ArrayBufferLike);
-      lastTraceData = bytes;
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      const dataUrl = `data:application/zip;base64,${btoa(binary)}`;
-      const d = new Date();
-      const timestamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}-${String(d.getSeconds()).padStart(2, '0')}`;
-      const filename = `pw-traces/trace-${timestamp}.zip`;
-      chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
-      crx.fs.unlinkSync(tracePath);
-      const size = bytes.length;
-      const sizeStr = size < 1024 * 1024 ? `${(size / 1024).toFixed(0)} KB` : `${(size / (1024 * 1024)).toFixed(1)} MB`;
-      return { ok: true, text: `Trace saved to Downloads/${filename} (${sizeStr})`, size };
-    })().then(sendResponse).catch((e: Error) => sendResponse({ ok: false, error: e.message }));
-    return true;
-  }
+  if (msg.type === 'tracing-stop') { stopTracing().then(sendResponse); return true; }
   if (msg.type === 'video-state')   { sendResponse({ recording: !!videoPage, startTime: videoStartTime }); return false; }
   if (msg.type === 'video-preview') {
     chrome.windows.create({ url: msg.blobUrl, type: 'popup', width: 1280, height: 720 });
@@ -431,24 +468,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg.type === 'tracing-view') {
     if (!lastTraceData) { sendResponse({ ok: false, error: 'No trace data available' }); return false; }
-    const traceBytes = lastTraceData;
-    (async () => {
-      const win = await chrome.windows.create({ url: 'https://trace.playwright.dev/', type: 'popup', width: 1400, height: 900 });
-      const tabId = win.tabs?.[0]?.id;
-      if (!tabId) return;
-      // Wait for page to load, then inject content script and send trace data
-      const onUpdated = (tid: number, info: chrome.tabs.TabChangeInfo) => {
-        if (tid !== tabId || info.status !== 'complete') return;
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['content/trace-loader.js'],
-        }).then(() => {
-          chrome.tabs.sendMessage(tabId, { type: 'load-trace', data: Array.from(traceBytes) });
-        });
-      };
-      chrome.tabs.onUpdated.addListener(onUpdated);
-    })();
+    viewTrace(lastTraceData).catch(e => console.debug('[sidekick] tracing-view:', e));
     sendResponse({ ok: true });
     return false;
   }

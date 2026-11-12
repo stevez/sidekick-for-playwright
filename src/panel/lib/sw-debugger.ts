@@ -119,27 +119,36 @@ export async function swTerminateExecution(): Promise<void> {
     await cdpSendCommand('Runtime.terminateExecution');
 }
 
-async function eagerSerialize(obj: CdpRemoteObject, depth = 0, visited = new Set<string>()): Promise<SerializedValue> {
+// `ancestors` holds the objects on the path from the root: only those make a cycle.
+// Two siblings pointing at the same object are not circular.
+async function eagerSerialize(obj: CdpRemoteObject, depth = 0, ancestors = new Set<string>()): Promise<SerializedValue> {
     // Primitives — delegate to existing converter
     if (obj.type !== 'object' || !obj.objectId) return fromCdpRemoteObject(obj);
     if (depth > 3) return fromCdpRemoteObject(obj);  // preview-only at depth limit
-    if (visited.has(obj.objectId)) return { __type: 'circular' };
-    visited.add(obj.objectId);
+    if (ancestors.has(obj.objectId)) return { __type: 'circular' };
 
     // Fetch own properties eagerly
     const raw = await swGetProperties(obj.objectId);
     const descriptors = (raw as { result?: CdpPropertyDescriptor[] })?.result;
     if (!descriptors) return fromCdpRemoteObject(obj);
 
+    const isArray = obj.subtype === 'array';
     const props: Record<string, SerializedValue> = {};
-    for (const desc of descriptors) {
-        if (!desc.value) continue;
-        props[desc.name] = await eagerSerialize(desc.value, depth + 1, visited);
+    let len = 0;
+    ancestors.add(obj.objectId);
+    try {
+        for (const desc of descriptors) {
+            if (!desc.value) continue;
+            if (isArray && desc.name === 'length') { len = Number(desc.value.value) || 0; continue; }
+            props[desc.name] = await eagerSerialize(desc.value, depth + 1, ancestors);
+        }
+    } finally {
+        ancestors.delete(obj.objectId);
     }
 
     const cls = obj.className ?? 'Object';
-    if (obj.subtype === 'array') {
-        return { __type: 'array', cls, len: descriptors.length, props };
+    if (isArray) {
+        return { __type: 'array', cls, len, props };
         // No objectId — fully serialized, no lazy expand
     }
     return { __type: 'object', cls, props };

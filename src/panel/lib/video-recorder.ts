@@ -6,6 +6,7 @@
 // is hidden (unlike canvas.captureStream, which only captures while the page renders).
 
 import { BufferTarget, CanvasSource, Output, QUALITY_MEDIUM, WebMOutputFormat } from 'mediabunny';
+import { fileTimestamp, saveUrlAs } from './file-utils';
 
 export type VideoResult = { ok: true; blobUrl: string; duration: number; size: number } | { ok: false; error: string };
 
@@ -45,13 +46,26 @@ async function startEncoder(s: Session, width: number, height: number): Promise<
     return { output, source };
 }
 
+/** Draw the frame scaled to fit the canvas, keeping its aspect ratio. The encoder's size is
+ *  fixed by the first frame, so a viewport resize mid-recording is letterboxed, not stretched. */
+function drawFitted(s: Session, frame: ImageBitmap) {
+    const { width, height } = s.canvas;
+    const scale = Math.min(width / frame.width, height / frame.height);
+    const w = frame.width * scale, h = frame.height * scale;
+    if (w < width || h < height) {
+        s.ctx.fillStyle = '#000';
+        s.ctx.fillRect(0, 0, width, height);
+    }
+    s.ctx.drawImage(frame, (width - w) / 2, (height - h) / 2, w, h);
+}
+
 async function encodeFrame(s: Session, b64: string, timestamp: number) {
     const frame = await createImageBitmap(new Blob([decodeBase64(b64)], { type: 'image/jpeg' }));
     try {
         s.encoder ??= await startEncoder(s, frame.width, frame.height);
         s.firstTimestamp ??= timestamp;
         const time = Math.max((timestamp - s.firstTimestamp) / 1000, s.lastTime + 0.001); // keep timestamps increasing
-        s.ctx.drawImage(frame, 0, 0, s.canvas.width, s.canvas.height);
+        drawFitted(s, frame);
         await s.encoder.source.add(time);
         s.lastTime = time;
     } finally {
@@ -112,19 +126,5 @@ export async function stopVideo(): Promise<VideoResult> {
 
 /** Save a recorded video through the browser's save dialog. */
 export async function saveVideo(blobUrl: string): Promise<void> {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const timestamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-    try {
-        const handle = await window.showSaveFilePicker({
-            suggestedName: `sidekick-recording-${timestamp}.webm`,
-            types: [{ description: 'WebM video', accept: { 'video/webm': ['.webm'] } }],
-        });
-        const blob = await (await fetch(blobUrl)).blob();
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-    } catch (e: unknown) {
-        if (e instanceof Error && e.name !== 'AbortError') console.error('Save video failed:', e);
-    }
+    await saveUrlAs(blobUrl, `sidekick-recording-${fileTimestamp()}.webm`, { description: 'WebM video', accept: { 'video/webm': ['.webm'] } });
 }

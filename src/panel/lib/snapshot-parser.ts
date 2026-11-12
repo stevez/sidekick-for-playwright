@@ -15,18 +15,18 @@ export function parseSnapshot(yamlText: string): SnapshotNode | null {
 }
 
 function toNodes(parsed: unknown[]): SnapshotNode[] {
-    return parsed.map(item => {
+    return parsed.flatMap((item): SnapshotNode[] => {
         if(typeof item === 'string') {
-            return { text: item, ref: extractRef(item), children: []}
+            return [{ text: item, ref: extractRef(item), children: []}]
         }
-        // Object: { "document [ref=e1]": [...children] } or { "textbox [ref=e5]": "value" }
-        const obj = item as Record<string, unknown>;
-        const key = Object.keys(obj)[0];
-        const val = obj[key];
-        const isScalar = typeof val === 'string' || typeof val === 'number';
-        const children = Array.isArray(val) ? toNodes(val) : [];
-        const text = isScalar ? `${key}: ${String(val)}` : key;
-        return { text, ref: extractRef(key), value: isScalar ? String(val) : undefined, children }
+        // Object: { "document [ref=e1]": [...children] } or { "textbox [ref=e5]": "value" };
+        // a mapping with several keys becomes one node per key
+        return Object.entries(item as Record<string, unknown>).map(([key, val]) => {
+            const isScalar = typeof val === 'string' || typeof val === 'number';
+            const children = Array.isArray(val) ? toNodes(val) : [];
+            const text = isScalar ? `${key}: ${String(val)}` : key;
+            return { text, ref: extractRef(key), value: isScalar ? String(val) : undefined, children }
+        })
     })
 }
 

@@ -13,7 +13,8 @@ function Splitter({editorPaneRef}: SplitterProps) {
         const newHeight = dragStartHeight.current + delta;
         const minHeight = 80;
         const clamped = Math.max(minHeight, Math.min(newHeight, window.innerHeight - minHeight));
-        editorPaneRef.current!.style.flex = `0 0 ${clamped}px`;
+        const editorPane = editorPaneRef.current;
+        if (editorPane) editorPane.style.flex = `0 0 ${clamped}px`;
     };
 
     function handleMouseUp() {
@@ -25,11 +26,12 @@ function Splitter({editorPaneRef}: SplitterProps) {
     }
 
     function handleMouseDown(event: React.MouseEvent<HTMLDivElement>) {
+        const editorPane = editorPaneRef.current;
+        if (!editorPane) return;
         document.body.style.cursor = 'row-resize';
         document.body.style.userSelect = 'none';
         dragStartY.current = event.clientY;
-        const editorPane = editorPaneRef.current;
-        dragStartHeight.current = editorPane!.offsetHeight;
+        dragStartHeight.current = editorPane.offsetHeight;
         setIsDragging(true);
     }
 
