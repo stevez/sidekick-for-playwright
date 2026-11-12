@@ -1,6 +1,6 @@
 {
   "name": "sidekick-for-playwright",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Sidekick for Playwright — Chrome extension to record Playwright tests, pick locators, run and debug scripts, and record video",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
     "@lezer/highlight": "^1.2.3",
-    "@playwright-repl/playwright-crx": "^1.22.1",
+    "@playwright-repl/playwright-crx": "^1.23.0",
     "codemirror": "^6.0.2",
     "js-yaml": "^4.1.1",
     "mediabunny": "1.62.0",
@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.2.0",
     "@types/chrome": "^0.0.304",
     "@types/js-yaml": "^4.0.9",
