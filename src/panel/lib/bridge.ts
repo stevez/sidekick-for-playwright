@@ -128,6 +128,19 @@ export async function executeCommandForConsole(command: string): Promise<Console
   return { cdpResult: r };
 }
 
-export async function attachToTab(tabId: number): Promise<{ ok: boolean; url?: string; error?: string }> {
-  return chrome.runtime.sendMessage({ type: 'attach', tabId });
+let attachSeq = 0;
+
+/**
+ * Attach to a tab. Attaches can overlap (a tab switch and a click on Attach), so only the
+ * latest one counts: earlier ones resolve with `stale: true` and the caller ignores them.
+ */
+export async function attachToTab(tabId: number): Promise<{ ok: boolean; url?: string; error?: string; stale: boolean }> {
+  const seq = ++attachSeq;
+  const res = await chrome.runtime.sendMessage({ type: 'attach', tabId });
+  return { ...res, stale: seq !== attachSeq };
+}
+
+/** Make any attach still in flight stale, e.g. when the user detaches meanwhile. */
+export function cancelPendingAttach(): void {
+  attachSeq++;
 }

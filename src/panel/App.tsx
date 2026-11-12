@@ -3,7 +3,7 @@ import Toolbar from './components/Toolbar'
 import CodeMirrorEditorPane, { type EditorHandle } from "./components/CodeMirrorEditorPane"
 import Splitter from './components/Splitter'
 import { panelReducer, initialState } from './reducer'
-import { attachToTab } from './lib/bridge'
+import { attachToTab, cancelPendingAttach } from './lib/bridge'
 import { BottomPane } from './components/BottomPane'
 import DebugBar from './components/DebugBar';
 import { onConsoleEvent } from '@/lib/sw-debugger';
@@ -39,21 +39,25 @@ function App() {
 
   // Restore session state across side panel close/reopen
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+
+    async function restoreSession() {
       const session = await loadSessionState();
-      if (session) {
-        if (session.editorContent) dispatch({ type: 'EDIT_EDITOR_CONTENT', content: session.editorContent });
-        if (session.breakPoints.length) dispatch({ type: 'SET_BREAKPOINTS', breakPoints: new Set(session.breakPoints) });
-        dispatch({ type: 'SET_BOTTOM_TAB', tab: session.bottomTab });
-        if (session.editorPaneHeight && editorPaneRef.current) {
-          editorPaneRef.current.style.flex = `0 0 ${session.editorPaneHeight}px`;
-        }
-        if (session.cursorPos) {
-          setTimeout(() => editorRef.current?.setCursorPos(session.cursorPos), 50);
-        }
-        for (const cmd of session.commandHistory) addCommand(cmd);
+      if (!session || cancelled) return;
+      if (session.editorContent) dispatch({ type: 'EDIT_EDITOR_CONTENT', content: session.editorContent });
+      if (session.breakPoints.length) dispatch({ type: 'SET_BREAKPOINTS', breakPoints: new Set(session.breakPoints) });
+      dispatch({ type: 'SET_BOTTOM_TAB', tab: session.bottomTab });
+      if (session.editorPaneHeight && editorPaneRef.current) {
+        editorPaneRef.current.style.flex = `0 0 ${session.editorPaneHeight}px`;
       }
-    })();
+      if (session.cursorPos) {
+        setTimeout(() => editorRef.current?.setCursorPos(session.cursorPos), 50);
+      }
+      for (const cmd of session.commandHistory) addCommand(cmd);
+    }
+
+    restoreSession();
+    return () => { cancelled = true; };
   }, []);
 
   function saveSession() {
@@ -104,9 +108,15 @@ function App() {
     window.close();
   }
 
+  // The toolbar attaches too (tab menu, Attach button): keep the ref on the attached tab
+  useEffect(() => {
+    attachedTabRef.current = state.attachedTabId;
+  }, [state.attachedTabId]);
+
   async function doAttach(tabId: number) {
     dispatch({ type: 'ATTACH_START' });
     const res = await attachToTab(tabId);
+    if (res.stale) return; // a newer attach or a detach took over
     if (res.ok && res.url) {
       attachedTabRef.current = tabId;
       dispatch({ type: 'ATTACH_SUCCESS', url: res.url, tabId });
@@ -142,6 +152,7 @@ function App() {
       if (url.startsWith('chrome-extension://') && !url.startsWith(`chrome-extension://${chrome.runtime.id}/`)) return;
       if (url.startsWith('chrome://')) {
         attachedTabRef.current = null;
+        cancelPendingAttach();
         dispatch({ type: 'DETACH' });
         return;
       }

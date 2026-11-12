@@ -1,3 +1,4 @@
+const MAX_HISTORY = 500;
 const _history: string[] = [];
 let _index = 0;
 
@@ -12,6 +13,7 @@ export function clearHistory() {
 
 export function addCommand(command: string) {
     _history.push(command);
+    if (_history.length > MAX_HISTORY) _history.splice(0, _history.length - MAX_HISTORY); // keep the newest
     _index = _history.length;
 }
 

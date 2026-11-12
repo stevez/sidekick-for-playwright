@@ -24,6 +24,9 @@ function ScopeSection({ scope, defaultOpen, onLocalProps }: ScopeSectionProps) {
     const [props, setProps] = useState<Record<string, SerializedValue> | null>(null);
     const [loading, setLoading] = useState(false);
     const prevObjectId = useRef(scope.objectId);
+    const requestRef = useRef(0); // only the latest request may update state
+
+    useEffect(() => () => { requestRef.current++; }, []); // ignore responses after unmount
 
     useEffect(() => {
         if (open && !props) fetchProps();
@@ -38,8 +41,10 @@ function ScopeSection({ scope, defaultOpen, onLocalProps }: ScopeSectionProps) {
     }, [scope.objectId]);
 
     function fetchProps() {
+        const request = ++requestRef.current;
         setLoading(true);
         swGetProperties(scope.objectId).then(raw => {
+            if (request !== requestRef.current) return; // a newer step or unmount
             const parsed = fromCdpGetProperties(raw);
             setProps(parsed);
             setLoading(false);

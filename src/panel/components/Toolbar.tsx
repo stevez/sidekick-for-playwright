@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import type { PanelState, Action } from "@/reducer";
-import { attachToTab } from '@/lib/bridge';
+import { attachToTab, cancelPendingAttach } from '@/lib/bridge';
 import { runJsScript, runJsScriptStep } from '@/lib/run';
 import { swTerminateExecution, swDebugResume } from '@/lib/sw-debugger';
 import { SunIcon, MoonIcon, FolderOpenIcon, SaveIcon, ExportIcon, RecordIcon, StopIcon, BugIcon, CrosshairIcon, PlugIcon, UnplugIcon, ScreencastIcon, PopOutIcon, DockIcon } from './Icons';
@@ -97,6 +97,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
     async function doAttach(tabId: number) {
         dispatch({ type: 'ATTACH_START' });
         const res = await attachToTab(tabId);
+        if (res.stale) return; // a newer attach or a detach took over
         if (res.ok && res.url) {
             dispatch({ type: 'ATTACH_SUCCESS', url: res.url, tabId });
             setSelectedTabId(null); // attachedTabId takes over in dropdown
@@ -112,6 +113,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
         setSelectedTabId(tabId); // show in dropdown immediately
         chrome.tabs.update(tabId, { active: true }).catch(e => console.debug('[sidekick] tab activate:', e));
         if (tab && isInternalUrl(tab.url)) {
+            cancelPendingAttach();
             dispatch({ type: 'DETACH' });
             return;
         }
@@ -294,6 +296,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
     }
 
     function handleDetach() {
+        cancelPendingAttach();
         dispatch({ type: 'DETACH' });
         // Let background know we're detaching (for cleanup)
         chrome.runtime.sendMessage({ type: 'detach' }).catch(e => console.debug('[sidekick] detach:', e));

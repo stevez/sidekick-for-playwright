@@ -75,7 +75,7 @@ export function ObjectTree({ data, label, depth = 0, expandDepth = 1, noQuote, g
     const [open, setOpen] = useState(depth < expandDepth);
     const [childProps, setChildProps] = useState<Record<string, SerializedValue> | null>(null);
     const [loading, setLoading] = useState(false);
-    const fetchedRef = useRef(false);
+    const fetchedForRef = useRef<string | undefined>(undefined); // objectId whose children are loaded
     const { generation, expanded } = useTreeExpand();
 
     useEffect(() => {
@@ -87,15 +87,23 @@ export function ObjectTree({ data, label, depth = 0, expandDepth = 1, noQuote, g
             ? data.objectId
             : undefined;
 
+    // Refetch when the slot shows a different object; ignore responses for an old one
     useEffect(() => {
-        if (open && objectId && getProperties && !fetchedRef.current) {
-            fetchedRef.current = true;
-            setLoading(true);
-            getProperties(objectId).then(raw => {
-                setChildProps(fromCdpGetProperties(raw));
-                setLoading(false);
-            });
-        }
+        if (!open || !objectId || !getProperties || fetchedForRef.current === objectId) return;
+        fetchedForRef.current = objectId;
+        let current = true, done = false;
+        setChildProps(null);
+        setLoading(true);
+        getProperties(objectId).then(raw => {
+            if (!current) return;
+            done = true;
+            setChildProps(fromCdpGetProperties(raw));
+            setLoading(false);
+        });
+        return () => {
+            current = false;
+            if (!done) fetchedForRef.current = undefined; // never loaded: fetch again next time
+        };
     }, [open, objectId]);
 
     const prefix = label !== undefined
