@@ -26,8 +26,6 @@ export interface ConsoleEntry {
   video?: string;
   videoDuration?: number;
   videoSize?: number;
-  trace?: boolean;
-  traceSize?: number;
   codeBlock?: string;
   errorText?: string;
   getProperties?: (objectId: string) => Promise<unknown>;

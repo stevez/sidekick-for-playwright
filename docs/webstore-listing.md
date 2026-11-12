@@ -39,9 +39,8 @@ RUN AND DEBUG
 • Autocompletion for the full Playwright API, page / locator / expect
 • Console for one-off Playwright expressions
 
-VIDEO AND TRACE
+VIDEO
 • Record a video of the tab, with clicks and actions highlighted, and save it as WebM
-• Record a Playwright trace from the console and open it in the Trace Viewer
 
 EXPORT
 • Export the script as a Playwright Test file (.spec.ts or .spec.js), ready to drop into your project and run with npx playwright test
@@ -85,13 +84,12 @@ The screenshots are generated: `npm run build`, then `npm run store:screenshots`
 
 | Permission | Justification |
 |---|---|
-| `debugger` | Playwright drives and inspects the attached tab through the Chrome DevTools Protocol to run the user's test script, pick elements, and record video and traces. |
+| `debugger` | Playwright drives and inspects the attached tab through the Chrome DevTools Protocol to run the user's test script, pick elements, and record video. |
 | `sidePanel` | The extension's whole UI (editor, console, Assert tab) lives in the side panel. |
 | `tabs` | Shows the open tabs in the toolbar so the user can choose which tab to attach to, and follows the active tab. |
-| `scripting` | Injects the recorder into the page to capture clicks and typing as Playwright code, and loads a recorded trace into the Trace Viewer. |
+| `scripting` | Injects the recorder into the page to capture clicks and typing as Playwright code. |
 | `storage` | Keeps the editor content, breakpoints and command history while the panel is closed and reopened (session storage, local only). |
 | `webNavigation` | Re-injects the recorder after the page navigates so recording continues across pages. |
-| `downloads` (optional) | Saves trace files when the user asks; requested at first use. |
 | Host permission `<all_urls>` | Users test arbitrary sites, so the recorder and Playwright must work on any page the user chooses to attach to. |
 
 **Remote code:** No. All code is bundled in the package.

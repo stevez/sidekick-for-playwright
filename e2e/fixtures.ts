@@ -44,8 +44,8 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
 
   extensionPath: [async ({}, use) => {
     if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) throw new Error('dist/ not found — run `npm run build` first');
-    // Tests can't click Chrome's permission prompt, so load a copy of dist/ with the
-    // optional permissions (video, downloads) already granted as required ones.
+    // Tests can't click Chrome's permission prompt, so load a copy of dist/ with any
+    // optional permissions already granted as required ones.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sidekick-ext-'));
     fs.cpSync(EXTENSION_PATH, dir, { recursive: true });
     const manifestFile = path.join(dir, 'manifest.json');
