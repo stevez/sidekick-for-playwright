@@ -113,6 +113,11 @@ function parseJsLocator(locator: string): ParsedLocator {
     return { method: 'unknown' };
 }
 
+/** Collapse whitespace (including non-breaking spaces) the way Playwright's text matchers do. */
+function normalizeWhiteSpace(s: string): string {
+    return s.replace(/\u200b/g, '').replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Derive the JS assertion for the picked element.
  * Priority: checked > value > URL-only link > text > visible.
@@ -144,7 +149,13 @@ function deriveAssertion(info: ElementPickInfo, locator: string, ariaSnapshot?: 
     // Skip if locator is getByText — toContainText with the same text is redundant
     const text = info.text?.trim();
     if (text && !/\.getByText\(/.test(locator)) {
-        const assertText = name ?? text;
+        // toContainText checks textContent, which can differ from the accessible name
+        // (aria-hidden counters, visually hidden text, CSS content). If the name isn't in the
+        // text, don't guess a value: suggest toBeVisible and let the user write the text.
+        const content = normalizeWhiteSpace(info.textContent ?? text);
+        const accessibleName = name ? normalizeWhiteSpace(name) : '';
+        if (accessibleName && !content.includes(accessibleName)) return `await expect(${locator}).toBeVisible();`;
+        const assertText = accessibleName || content;
         return `await expect(${locator}).toContainText('${assertText.replace(/'/g, "\\'")}');`;
     }
 

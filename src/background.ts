@@ -380,6 +380,8 @@ async function pickElement(): Promise<{ ok: boolean; info?: Record<string, unkno
       return {
         tag: tag.toLowerCase(), // pick-info and the assert builder compare lowercase tags
         text: (el as HTMLElement).innerText?.slice(0, 200) ?? '',
+        // What toContainText compares (Playwright normalizes whitespace the same way)
+        textContent: (el.textContent ?? '').replace(/\u200b/g, '').replace(/\s+/g, ' ').trim().slice(0, 200),
         html: el.outerHTML?.slice(0, 500) ?? '',
         attributes: attrs,
         visible: true,
