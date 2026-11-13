@@ -35,6 +35,7 @@ export type ElementPickInfo = {
     locator: string;
     tag: string;
     text: string;
+    textContent?: string;   // whitespace-normalized textContent: what toContainText compares
     html: string;
     attributes: Record<string, string>;
     visible: boolean;

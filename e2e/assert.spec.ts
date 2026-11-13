@@ -89,3 +89,12 @@ test.describe('Assert tab', () => {
     await expect(panel.getByTestId('assert-type').locator('option[value="toHaveValue"]')).toHaveCount(0);
   });
 });
+
+test('suggests toBeVisible when the accessible name differs from the text', async ({ panel, target, siteURL }) => {
+  await target.goto(siteURL + 'counter.html');
+  await panel.getByTestId('tab-assert').click();
+  await pick(panel, target, 'assert-pick-btn', () => target.getByRole('link').click());
+  await expect(panel.getByTestId('assert-locator')).toHaveValue(/getByRole\('link'/, { timeout: 10_000 });
+  await expect(panel.getByTestId('assert-assertion')).toHaveValue(/\.toBeVisible\(\);$/);
+  await expect(await verify(panel)).toHaveAttribute('data-status', 'passed');
+});

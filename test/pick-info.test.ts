@@ -25,6 +25,17 @@ describe('buildPickResult', () => {
         expect(r.ref).toBe('e5');
     });
 
+    it('suggests toBeVisible when the accessible name is not in the text (aria-hidden counter, visually hidden text)', () => {
+        // GitHub's "Closed" tab: <div>Closed</div><span aria-hidden>20</span><span hidden-visually>&nbsp;(20)</span>
+        const r = buildPickResult(info({ locator: "getByRole('link', { name: 'Closed\u00a0 (20)' })", tag: 'a', text: 'Closed\n20\n (20)', textContent: 'Closed20 (20)' }), undefined, '- link "Closed\u00a0(20)"');
+        expect(r.assertJs).toBe("await expect(page.getByRole('link', { name: 'Closed\u00a0 (20)' })).toBeVisible();");
+    });
+
+    it('normalizes whitespace in the name it asserts', () => {
+        const r = buildPickResult(info({ locator: "getByRole('button', { name: 'Save  draft' })", text: 'Save draft', textContent: 'Save draft' }), undefined, '- button "Save\u00a0 draft"');
+        expect(r.assertJs).toBe("await expect(page.getByRole('button', { name: 'Save  draft' })).toContainText('Save draft');");
+    });
+
     it('prefers the full aria name over a substring locator name', () => {
         const r = buildPickResult(info({ locator: "getByRole('button', { name: 'Sub' })", text: 'Submit form' }), undefined, '- button "Submit form"');
         expect(r.assertJs).toBe("await expect(page.getByRole('button', { name: 'Sub' })).toContainText('Submit form');");
