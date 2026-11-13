@@ -34,7 +34,7 @@ BUILD ASSERTIONS
 • Verify it on the live page before you copy it: see "expected" vs "received" when it fails
 
 RUN AND DEBUG
-• Run the script with one click (Ctrl+Enter), with pass/fail marks on each line
+• Run the script with one click, with pass/fail marks on each line
 • Breakpoints, Step Over / Into / Out, and inline variable values
 • Autocompletion for the full Playwright API, page / locator / expect
 • Console for one-off Playwright expressions

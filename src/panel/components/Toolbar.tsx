@@ -403,7 +403,7 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
                 </button>
                 {(isRunning || stepLine !== -1) && !isStepDebugging
                     ? <button id="stop-run-btn" data-testid="stop-run-btn" title="Stop" onClick={handleStop}><StopIcon /></button>
-                    : <button id="run-btn" data-testid="run-btn" title="Run script (Ctrl+Enter)" disabled={!editorContent.trim() || isStepDebugging} onClick={handleRun}>&#9654;</button>
+                    : <button id="run-btn" data-testid="run-btn" title="Run script" disabled={!editorContent.trim() || isStepDebugging} onClick={handleRun}>&#9654;</button>
                 }
                 {!isRunning && stepLine === -1 && (
                     <button id="debug-btn" data-testid="debug-btn" title="Debug script" disabled={!editorContent.trim()} onClick={handleDebug}><BugIcon /></button>
