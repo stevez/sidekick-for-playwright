@@ -6,7 +6,7 @@ Record a session as Playwright JavaScript, pick locators, build assertions, run 
 
 ## Status
 
-Version 1.0.2, being submitted to the Chrome Web Store. It was split off from [Dramaturg](https://github.com/stevez/playwright-repl/tree/main/packages/extension) as a plain copy and narrowed to JavaScript only, without the `.pw` keyword commands, CLI/MCP bridge, CDP relay or DevTools console.
+Version 1.0.3, being submitted to the Chrome Web Store. It was split off from [Dramaturg](https://github.com/stevez/playwright-repl/tree/main/packages/extension) as a plain copy and narrowed to JavaScript only, without the `.pw` keyword commands, CLI/MCP bridge, CDP relay or DevTools console.
 
 Working: attach to a tab, record → Playwright JS, run the script, step debugger with breakpoints, element picker, console, video capture (Playwright screencast of the attached tab, with clicks and actions highlighted; no extra permission), the **Assert** tab, and **Export spec**. The Assert tab is ported from the playwright-repl VS Code extension: pick an element, choose one of 13 matchers (or an ARIA snapshot), verify it on the live page, and copy it. Export spec wraps the script in a Playwright Test file (`.spec.ts` / `.spec.js`), with the test name taken from the page title. The panel can pop out into its own window and dock back, and its light and dark themes follow the system setting.
 
