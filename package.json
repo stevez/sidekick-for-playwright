@@ -1,6 +1,6 @@
 {
   "name": "sidekick-for-playwright",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Sidekick for Playwright — Chrome extension to record Playwright tests, pick locators, run and debug scripts, and record video",
   "license": "MIT",
