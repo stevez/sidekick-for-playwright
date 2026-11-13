@@ -186,8 +186,21 @@ function Toolbar({ editorContent, stepLine, attachedUrl, attachedTabId, isAttach
 
     async function handleRun() {
         dispatch({ type: 'RUN_START' });
-        await runJsScript(editorContent, dispatch);
+        const sessionLost = await runJsScript(editorContent, dispatch);
         dispatch({ type: 'RUN_STOP' });
+        if (sessionLost) await reconnect();
+    }
+
+    /** The connection to the tab is gone (closed page): start a fresh session on the same tab. */
+    async function reconnect() {
+        dispatch({ type: 'ADD_LINE', line: { text: 'Lost the connection to the tab. Reconnecting…', type: 'info' } });
+        const r = await chrome.runtime.sendMessage({ type: 'reconnect' }).catch((e: unknown) => ({ ok: false, error: String(e) }));
+        if (r?.ok && r.url && r.tabId) {
+            dispatch({ type: 'ATTACH_SUCCESS', url: r.url, tabId: r.tabId });
+            dispatch({ type: 'ADD_LINE', line: { text: 'Reconnected. Run the script again.', type: 'info' } });
+        } else {
+            dispatch({ type: 'ADD_LINE', line: { text: `Reconnect failed: ${r?.error ?? 'unknown error'}. Reload the extension in chrome://extensions.`, type: 'error' } });
+        }
     }
 
     function handleStop() {
