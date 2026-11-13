@@ -79,14 +79,27 @@ function ScopeSection({ scope, defaultOpen, onLocalProps }: ScopeSectionProps) {
 }
 
 
+/** Stable keys across steps: the debugger hands out a new objectId at every pause, so keying by it
+ *  would remount each section and collapse it. Type + name (+ a count for repeats) stays the same. */
+function scopeKeys(scopes: ScopeInfo[]): string[] {
+    const seen = new Map<string, number>();
+    return scopes.map(s => {
+        const base = `${s.type}:${s.name ?? ''}`;
+        const n = seen.get(base) ?? 0;
+        seen.set(base, n + 1);
+        return `${base}:${n}`;
+    });
+}
+
 export function VariablePane({ scopeData, onLocalProps }: VariablePaneProps) {
+    const keys = scopeKeys(scopeData);
     return (
         <div className="overflow-auto flex-1 p-2 font-(family-name:--font-code)">
             { scopeData.length === 0 
               ? <div className='ot-empty'>No local variables</div>
-              : scopeData.map((scope) => (
+              : scopeData.map((scope, i) => (
                 <ScopeSection 
-                        key={scope.objectId} 
+                        key={keys[i]} 
                         scope={scope} 
                         defaultOpen={scope.type === 'local'} 
                         onLocalProps={(scope.type === 'local' || scope.type === 'block') ? onLocalProps : undefined }/>
