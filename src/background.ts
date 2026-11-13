@@ -105,6 +105,39 @@ async function ensureCrxApp(): Promise<CrxApplication> {
   return crxApp;
 }
 
+/**
+ * Throw the Playwright session away so the next attach starts a fresh one. Needed when
+ * Chrome drops the debugger connection underneath it: the old session keeps handing out
+ * pages that never answer (TargetClosedError, timeouts), and detach/attach can't fix that.
+ */
+async function resetCrxApp(): Promise<void> {
+  const app = crxApp;
+  resetCrxState();
+  await app?.close().catch(e => console.debug('[sidekick] close Playwright session:', e));
+}
+
+/** Whether the page answers a trivial evaluate within `ms`; a page from a dead session never does. */
+async function isPageResponsive(page: Page, ms = 5000): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), ms); });
+  const answer = page.evaluate(() => true).then(() => true, () => false);
+  const alive = await Promise.race([answer, timeout]);
+  clearTimeout(timer);
+  return alive;
+}
+
+/** Attach to `tabId`, retrying once after dropping stale sessions. */
+async function attachPage(app: CrxApplication, tabId: number): Promise<Page> {
+  try {
+    return await app.attach(tabId);
+  } catch {
+    // Attach failed (stale frames, etc.) — detach all stale sessions and retry.
+    // The _doDetach fix in playwright-crx handles broken pages gracefully.
+    await app.detachAll().catch(e => console.debug('[sidekick] detachAll before retry:', e));
+    return await app.attach(tabId);
+  }
+}
+
 function isAttachableUrl(url: string | undefined): boolean {
   if (!url) return true; // no URL info — let attachToTab decide
   if (url.startsWith('chrome://')) return false;
@@ -155,7 +188,7 @@ async function attachToTab(tabId: number): Promise<{ ok: boolean; url?: string; 
       return { ok: false, error: 'Cannot attach to this page — browser restricts extension access. Navigate to a regular webpage first.' };
     }
 
-    const app = await ensureCrxApp();
+    let app = await ensureCrxApp();
 
     // Only detach when re-attaching to the SAME tab (SPA navigation / stale frames).
     // playwright-crx supports multiple attached pages, so switching tabs is safe.
@@ -165,14 +198,15 @@ async function attachToTab(tabId: number): Promise<{ ok: boolean; url?: string; 
       activeTabId = null;
     }
 
-    try {
-      currentPage = await app.attach(tabId);
-    } catch {
-      // Attach failed (stale frames, etc.) — detach all stale sessions and retry.
-      // The _doDetach fix in playwright-crx handles broken pages gracefully.
-      await app.detachAll().catch(e => console.debug('[sidekick] detachAll before retry:', e));
-      currentPage = await app.attach(tabId);
+    // A dead session fails to attach, or attaches a page that never answers: start a fresh one
+    let page = await attachPage(app, tabId).catch(() => null);
+    if (!page || !await isPageResponsive(page)) {
+      console.debug('[sidekick] page not responding after attach — restarting the Playwright session');
+      await resetCrxApp();
+      app = await ensureCrxApp();
+      page = await attachPage(app, tabId);
     }
+    currentPage = page;
 
     activeTabId = tabId;
     Object.assign(globalThis, { page: currentPage, context: app.context(), crxApp: app, activeTabId, expect: patchedExpect });
@@ -189,6 +223,15 @@ async function attachToTab(tabId: number): Promise<{ ok: boolean; url?: string; 
     activeTabId = null;
     return { ok: false, error: String(e) };
   }
+}
+
+/** After a run hit a closed page: start a fresh Playwright session and attach the same tab again. */
+async function reconnect(): Promise<{ ok: boolean; url?: string; tabId?: number; error?: string }> {
+  const tabId = activeTabId ?? await getActiveTabId();
+  await resetCrxApp();
+  if (!tabId) return { ok: false, error: 'No tab to reconnect to' };
+  const res = await attachToTab(tabId);
+  return { ...res, tabId };
 }
 
 // ─── Recording ───────────────────────────────────────────────────────────────
@@ -374,6 +417,7 @@ async function cancelPick(): Promise<{ ok: boolean }> {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'attach')        { attachToTab(msg.tabId).then(sendResponse); return true; }
+  if (msg.type === 'reconnect')     { reconnect().then(sendResponse); return true; }
   if (msg.type === 'detach')        {
     if (activeTabId !== null && crxApp) {
       crxApp.detach(activeTabId).catch(e => console.debug('[sidekick] detach:', e));

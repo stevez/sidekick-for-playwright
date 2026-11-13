@@ -11,7 +11,13 @@ function trimStack(msg: string): string {
     return msg.split('\n    at ')[0].split('\nCall log:')[0].trim();
 }
 
-export async function runJsScript(code: string, dispatch: React.Dispatch<Action>): Promise<void> {
+/** Playwright's error when the page or its whole session is gone (e.g. Chrome dropped the debugger). */
+export function isSessionLost(message: string): boolean {
+    return /TargetClosedError|Target page, context or browser has been closed/.test(message);
+}
+
+/** Runs the script; resolves to true when it failed because the connection to the tab was lost. */
+export async function runJsScript(code: string, dispatch: React.Dispatch<Action>): Promise<boolean> {
     dispatch({ type: 'COMMAND_SUBMITTED', line: { text: '(run JS script)', type: 'command' } });
     try {
         const start = performance.now();
@@ -29,9 +35,11 @@ export async function runJsScript(code: string, dispatch: React.Dispatch<Action>
             dispatch({ type: 'COMMAND_SUCCESS', line: { text: '', type: 'success', time, value, getProperties: swGetProperties } });
         }
     } catch (e: unknown) {
-        const text = trimStack(e instanceof Error ? e.message : String(e));
-        dispatch({ type: 'COMMAND_ERROR', line: { text, type: 'error' } });
+        const message = e instanceof Error ? e.message : String(e);
+        dispatch({ type: 'COMMAND_ERROR', line: { text: trimStack(message), type: 'error' } });
+        return isSessionLost(message);
     }
+    return false;
 }
 
 export async function runJsScriptStep(code: string, dispatch: React.Dispatch<Action>, breakPoints?: Set<number>): Promise<void> {
