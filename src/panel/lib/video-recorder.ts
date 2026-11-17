@@ -4,13 +4,21 @@
 // canvas and encoded with WebCodecs at its own timestamp, then muxed into a .webm by
 // Mediabunny. Timing comes from the frames, so encoding keeps working while the panel
 // is hidden (unlike canvas.captureStream, which only captures while the page renders).
+// Output is an H.264 MP4 (plays everywhere, iPhone included); WebM/VP9 if the browser
+// can't encode H.264.
 
-import { BufferTarget, CanvasSource, Output, QUALITY_MEDIUM, WebMOutputFormat } from 'mediabunny';
+import { BufferTarget, CanvasSource, canEncodeVideo, Mp4OutputFormat, Output, QUALITY_HIGH, WebMOutputFormat } from 'mediabunny';
 import { fileTimestamp, saveUrlAs } from './file-utils';
 
 export type VideoResult = { ok: true; blobUrl: string; duration: number; size: number } | { ok: false; error: string };
 
-type Encoder = { output: Output<WebMOutputFormat, BufferTarget>; source: CanvasSource };
+type Container = 'mp4' | 'webm';
+type Encoder = { output: Output<Mp4OutputFormat | WebMOutputFormat, BufferTarget>; source: CanvasSource; container: Container };
+
+const MIME: Record<Container, string> = { mp4: 'video/mp4', webm: 'video/webm' };
+
+/** The container of each recorded blob URL, for the file name when saving. */
+const containers = new Map<string, Container>();
 
 type Session = {
     canvas: HTMLCanvasElement;
@@ -39,11 +47,16 @@ function decodeBase64(b64: string): Uint8Array<ArrayBuffer> {
 async function startEncoder(s: Session, width: number, height: number): Promise<Encoder> {
     s.canvas.width = width - width % 2; // encoders want even dimensions
     s.canvas.height = height - height % 2;
-    const output = new Output({ format: new WebMOutputFormat(), target: new BufferTarget() });
-    const source = new CanvasSource(s.canvas, { codec: 'vp9', bitrate: QUALITY_MEDIUM });
+    const size = { width: s.canvas.width, height: s.canvas.height, bitrate: QUALITY_HIGH };
+    const container: Container = await canEncodeVideo('avc', size) ? 'mp4' : 'webm';
+    const format = container === 'mp4'
+        ? new Mp4OutputFormat({ fastStart: 'in-memory' }) // index at the front, so players can start before the end
+        : new WebMOutputFormat();
+    const output = new Output({ format, target: new BufferTarget() });
+    const source = new CanvasSource(s.canvas, { codec: container === 'mp4' ? 'avc' : 'vp9', bitrate: QUALITY_HIGH });
     output.addVideoTrack(source);
     await output.start();
-    return { output, source };
+    return { output, source, container };
 }
 
 /** Draw the frame scaled to fit the canvas, keeping its aspect ratio. The encoder's size is
@@ -120,11 +133,17 @@ export async function stopVideo(): Promise<VideoResult> {
         await encoder.output.cancel().catch(() => {});
         return { ok: false, error: `Video encoding failed: ${String(e)}` };
     }
-    const blob = new Blob([encoder.output.target.buffer!], { type: 'video/webm' });
-    return { ok: true, blobUrl: URL.createObjectURL(blob), duration: r?.duration ?? 0, size: blob.size };
+    const blob = new Blob([encoder.output.target.buffer!], { type: MIME[encoder.container] });
+    const blobUrl = URL.createObjectURL(blob);
+    containers.set(blobUrl, encoder.container);
+    return { ok: true, blobUrl, duration: r?.duration ?? 0, size: blob.size };
 }
 
 /** Save a recorded video through the browser's save dialog. */
 export async function saveVideo(blobUrl: string): Promise<void> {
-    await saveUrlAs(blobUrl, `sidekick-recording-${fileTimestamp()}.webm`, { description: 'WebM video', accept: { 'video/webm': ['.webm'] } });
+    const container = containers.get(blobUrl) ?? 'mp4';
+    await saveUrlAs(blobUrl, `sidekick-recording-${fileTimestamp()}.${container}`, {
+        description: container === 'mp4' ? 'MP4 video' : 'WebM video',
+        accept: { [MIME[container]]: [`.${container}`] },
+    });
 }

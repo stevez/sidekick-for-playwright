@@ -40,7 +40,7 @@ RUN AND DEBUG
 • Console for one-off Playwright expressions
 
 VIDEO
-• Record a video of the tab, with clicks and actions highlighted, and save it as WebM
+• Record a video of the tab, with clicks and actions highlighted, and save it as MP4
 
 EXPORT
 • Export the script as a Playwright Test file (.spec.ts or .spec.js), ready to drop into your project and run with npx playwright test
