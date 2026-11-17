@@ -18,7 +18,7 @@ test('records a video of the attached tab from the toolbar', async ({ panel, tar
   await expect(entry).toContainText('Video recorded', { timeout: 10_000 });
   await expect(entry.getByRole('button', { name: 'Save Video' })).toBeVisible();
 
-  // The blob is a playable WebM
+  // The blob is a playable video: H.264 MP4 where the browser can encode it, else WebM
   const video = await panel.evaluate(async () => {
     const blobUrl = document.querySelector<HTMLElement>('[data-type="video"]')!.dataset.blobUrl!;
     const blob = await (await fetch(blobUrl)).blob();
@@ -30,11 +30,11 @@ test('records a video of the attached tab from the toolbar', async ({ panel, tar
     for (const b of bytes) bin += String.fromCharCode(b);
     return { type: blob.type, size: blob.size, width: el.videoWidth, height: el.videoHeight, base64: btoa(bin) };
   });
-  fs.writeFileSync(testInfo.outputPath('recording.webm'), Buffer.from(video.base64, 'base64'));
-  expect(video.type).toBe('video/webm');
+  expect(['video/mp4', 'video/webm']).toContain(video.type);
+  fs.writeFileSync(testInfo.outputPath(`recording.${video.type.split('/')[1]}`), Buffer.from(video.base64, 'base64'));
   expect(video.size).toBeGreaterThan(1000);
   expect(video.width).toBeGreaterThan(0);
-  expect(video.width).toBeLessThanOrEqual(1280);
+  expect(video.width).toBeLessThanOrEqual(1920);
   expect(video.width % 2).toBe(0); // encoders want even dimensions
   expect(video.height % 2).toBe(0);
 });
@@ -52,11 +52,11 @@ test('records a video while the script runs (action highlights come from the pan
   await panel.getByTestId('video-btn').click();
   await expect(panel.locator('[data-type="video"]')).toContainText('Video recorded', { timeout: 10_000 });
 
-  const b64 = await panel.evaluate(async () => {
+  const { type, b64 } = await panel.evaluate(async () => {
     const blob = await (await fetch(document.querySelector<HTMLElement>('[data-type="video"]')!.dataset.blobUrl!)).blob();
     let bin = '';
     for (const b of new Uint8Array(await blob.arrayBuffer())) bin += String.fromCharCode(b);
-    return btoa(bin);
+    return { type: blob.type, b64: btoa(bin) };
   });
-  fs.writeFileSync(testInfo.outputPath('run.webm'), Buffer.from(b64, 'base64'));
+  fs.writeFileSync(testInfo.outputPath(`run.${type.split('/')[1]}`), Buffer.from(b64, 'base64'));
 });

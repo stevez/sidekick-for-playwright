@@ -306,7 +306,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // connection; the panel encodes them into a .webm (see panel/lib/video-recorder.ts).
 // No tabCapture: it only works on tabs where the user clicked the extension icon.
 
-const VIDEO_MAX_WIDTH = 1280;
+const VIDEO_MAX_WIDTH = 1920;
+const VIDEO_JPEG_QUALITY = 90; // the frames are re-encoded to video, so start sharp
 
 let videoPage: Page | null = null;
 let videoStartTime = 0;
@@ -317,11 +318,13 @@ async function startVideoCapture(): Promise<{ ok: boolean; error?: string }> {
   if (!page) return { ok: false, error: 'Attach to a tab first' };
 
   try {
-    const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
-    const scale = Math.min(1, VIDEO_MAX_WIDTH / viewport.width);
+    // Capture in device pixels, so text is as sharp as on screen with display scaling (125%, 150%, Retina)
+    const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 }));
+    const scale = Math.min(viewport.dpr, VIDEO_MAX_WIDTH / viewport.width);
     const even = (n: number) => Math.max(2, Math.round(n * scale / 2) * 2); // video encoders want even dimensions
     await page.screencast.start({
       size: { width: even(viewport.width), height: even(viewport.height) },
+      quality: VIDEO_JPEG_QUALITY,
       onFrame: frame => {
         chrome.runtime.sendMessage({ type: 'video-frame', data: frame.data.toString('base64'), timestamp: frame.timestamp }).catch(() => {});
       },
