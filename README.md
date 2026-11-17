@@ -38,7 +38,7 @@ Sidekick doesn't replace codegen or the VS Code extension: it's for getting from
 
 ## Status
 
-Version 1.0.3, [on the Chrome Web Store](https://chromewebstore.google.com/detail/mogfomdgpoiedianojekjgoiobfkahob). Split off from [Dramaturg](https://github.com/stevez/playwright-repl/tree/main/packages/extension) and narrowed to JavaScript only, without the `.pw` keyword commands, CLI/MCP bridge, CDP relay or DevTools console. Store listing text and privacy answers are in [`docs/webstore-listing.md`](docs/webstore-listing.md).
+Version 1.0.4, [on the Chrome Web Store](https://chromewebstore.google.com/detail/mogfomdgpoiedianojekjgoiobfkahob). Split off from [Dramaturg](https://github.com/stevez/playwright-repl/tree/main/packages/extension) and narrowed to JavaScript only, without the `.pw` keyword commands, CLI/MCP bridge, CDP relay or DevTools console. Store listing text and privacy answers are in [`docs/webstore-listing.md`](docs/webstore-listing.md).
 
 ## Develop
 
